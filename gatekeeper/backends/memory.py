@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class MemoryBackend(UserBackend):
     """
     In-memory user storage backend.
-    
+
     This backend stores user data in memory and is suitable for testing,
     development, and small-scale applications. Data is lost when the
     application restarts.
@@ -36,13 +36,13 @@ class MemoryBackend(UserBackend):
     async def create_user(self, user: UserCreate) -> User:
         """
         Create a new user in the in-memory storage.
-        
+
         Args:
             user: User creation data
-            
+
         Returns:
             User: The created user object
-            
+
         Raises:
             UserAlreadyExistsError: If a user with the same username already exists
         """
@@ -51,11 +51,15 @@ class MemoryBackend(UserBackend):
 
         # Check if username already exists
         if user.username in self._usernames:
-            raise UserAlreadyExistsError(f"User with username '{user.username}' already exists")
+            raise UserAlreadyExistsError(
+                f"User with username '{user.username}' already exists"
+            )
 
         # Check if email already exists (if provided)
         if user.email and user.email in self._emails:
-            raise UserAlreadyExistsError(f"User with email '{user.email}' already exists")
+            raise UserAlreadyExistsError(
+                f"User with email '{user.email}' already exists"
+            )
 
         # Generate user ID
         user_id = str(uuid.uuid4())
@@ -71,7 +75,7 @@ class MemoryBackend(UserBackend):
             is_active=True,
             created_at=now,
             updated_at=now,
-            metadata={}
+            metadata={},
         )
 
         # Store user
@@ -86,10 +90,10 @@ class MemoryBackend(UserBackend):
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """
         Retrieve a user by username.
-        
+
         Args:
             username: The username to search for
-            
+
         Returns:
             Optional[User]: The user if found, None otherwise
         """
@@ -104,10 +108,10 @@ class MemoryBackend(UserBackend):
     async def get_user_by_id(self, user_id: str) -> Optional[User]:
         """
         Retrieve a user by ID.
-        
+
         Args:
             user_id: The user ID to search for
-            
+
         Returns:
             Optional[User]: The user if found, None otherwise
         """
@@ -119,14 +123,14 @@ class MemoryBackend(UserBackend):
     async def update_user(self, username: str, user_update: UserUpdate) -> User:
         """
         Update an existing user.
-        
+
         Args:
             username: The username of the user to update
             user_update: The update data
-            
+
         Returns:
             User: The updated user object
-            
+
         Raises:
             UserNotFoundError: If the user is not found
         """
@@ -141,8 +145,10 @@ class MemoryBackend(UserBackend):
         if user_update.username is not None and user_update.username != username:
             # Check if new username is already taken
             if user_update.username in self._usernames:
-                raise UserAlreadyExistsError(f"Username '{user_update.username}' is already taken")
-            
+                raise UserAlreadyExistsError(
+                    f"Username '{user_update.username}' is already taken"
+                )
+
             # Update username mapping
             del self._usernames[username]
             self._usernames[user_update.username] = user.id
@@ -151,8 +157,10 @@ class MemoryBackend(UserBackend):
         if user_update.email is not None and user_update.email != user.email:
             # Check if new email is already taken
             if user_update.email in self._emails:
-                raise UserAlreadyExistsError(f"Email '{user_update.email}' is already taken")
-            
+                raise UserAlreadyExistsError(
+                    f"Email '{user_update.email}' is already taken"
+                )
+
             # Update email mapping
             if user.email:
                 del self._emails[user.email]
@@ -180,10 +188,10 @@ class MemoryBackend(UserBackend):
     async def delete_user(self, username: str) -> bool:
         """
         Delete a user from the in-memory storage.
-        
+
         Args:
             username: The username of the user to delete
-            
+
         Returns:
             bool: True if the user was deleted, False if not found
         """
@@ -208,11 +216,11 @@ class MemoryBackend(UserBackend):
     async def list_users(self, skip: int = 0, limit: int = 100) -> List[UserPublic]:
         """
         List users in the in-memory storage.
-        
+
         Args:
             skip: Number of users to skip (for pagination)
             limit: Maximum number of users to return
-            
+
         Returns:
             List[UserPublic]: List of users (public data only)
         """
@@ -220,15 +228,17 @@ class MemoryBackend(UserBackend):
             raise BackendError("Backend is closed")
 
         users = list(self._users.values())
-        users.sort(key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc))
-        
-        paginated_users = users[skip:skip + limit]
+        users.sort(
+            key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        )
+
+        paginated_users = users[skip : skip + limit]
         return [UserPublic.from_user(user) for user in paginated_users]
 
     async def count_users(self) -> int:
         """
         Get the total number of users in the in-memory storage.
-        
+
         Returns:
             int: Total number of users
         """
@@ -240,11 +250,11 @@ class MemoryBackend(UserBackend):
     async def update_user_password(self, username: str, new_password_hash: str) -> bool:
         """
         Update a user's password hash.
-        
+
         Args:
             username: The username of the user
             new_password_hash: The new password hash
-            
+
         Returns:
             bool: True if the password was updated, False if user not found
         """
@@ -264,11 +274,11 @@ class MemoryBackend(UserBackend):
     async def update_user_role(self, username: str, new_role: str) -> bool:
         """
         Update a user's role.
-        
+
         Args:
             username: The username of the user
             new_role: The new role
-            
+
         Returns:
             bool: True if the role was updated, False if user not found
         """
@@ -285,14 +295,16 @@ class MemoryBackend(UserBackend):
         logger.info(f"Updated role for user '{username}' to '{new_role}'")
         return True
 
-    async def update_user_profile_picture(self, username: str, profile_picture_url: Optional[str]) -> bool:
+    async def update_user_profile_picture(
+        self, username: str, profile_picture_url: Optional[str]
+    ) -> bool:
         """
         Update a user's profile picture URL.
-        
+
         Args:
             username: The username of the user
             profile_picture_url: The new profile picture URL or None to remove
-            
+
         Returns:
             bool: True if the profile picture was updated, False if user not found
         """
@@ -309,14 +321,16 @@ class MemoryBackend(UserBackend):
         logger.info(f"Updated profile picture for user '{username}'")
         return True
 
-    async def update_user_metadata(self, username: str, metadata: Dict[str, Any]) -> bool:
+    async def update_user_metadata(
+        self, username: str, metadata: Dict[str, Any]
+    ) -> bool:
         """
         Update a user's metadata.
-        
+
         Args:
             username: The username of the user
             metadata: The new metadata dictionary
-            
+
         Returns:
             bool: True if the metadata was updated, False if user not found
         """
@@ -333,15 +347,17 @@ class MemoryBackend(UserBackend):
         logger.info(f"Updated metadata for user '{username}'")
         return True
 
-    async def search_users(self, query: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
+    async def search_users(
+        self, query: str, skip: int = 0, limit: int = 100
+    ) -> List[UserPublic]:
         """
         Search for users by username or email.
-        
+
         Args:
             query: Search query string
             skip: Number of users to skip (for pagination)
             limit: Maximum number of users to return
-            
+
         Returns:
             List[UserPublic]: List of matching users (public data only)
         """
@@ -352,24 +368,29 @@ class MemoryBackend(UserBackend):
         matching_users = []
 
         for user in self._users.values():
-            if (query_lower in user.username.lower() or 
-                (user.email and query_lower in user.email.lower())):
+            if query_lower in user.username.lower() or (
+                user.email and query_lower in user.email.lower()
+            ):
                 matching_users.append(user)
 
-        matching_users.sort(key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc))
-        paginated_users = matching_users[skip:skip + limit]
-        
+        matching_users.sort(
+            key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        )
+        paginated_users = matching_users[skip : skip + limit]
+
         return [UserPublic.from_user(user) for user in paginated_users]
 
-    async def get_users_by_role(self, role: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
+    async def get_users_by_role(
+        self, role: str, skip: int = 0, limit: int = 100
+    ) -> List[UserPublic]:
         """
         Get users by role.
-        
+
         Args:
             role: The role to filter by
             skip: Number of users to skip (for pagination)
             limit: Maximum number of users to return
-            
+
         Returns:
             List[UserPublic]: List of users with the specified role
         """
@@ -377,18 +398,20 @@ class MemoryBackend(UserBackend):
             raise BackendError("Backend is closed")
 
         matching_users = [user for user in self._users.values() if user.role == role]
-        matching_users.sort(key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc))
-        
-        paginated_users = matching_users[skip:skip + limit]
+        matching_users.sort(
+            key=lambda u: u.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        )
+
+        paginated_users = matching_users[skip : skip + limit]
         return [UserPublic.from_user(user) for user in paginated_users]
 
     async def is_username_taken(self, username: str) -> bool:
         """
         Check if a username is already taken.
-        
+
         Args:
             username: The username to check
-            
+
         Returns:
             bool: True if the username is taken, False otherwise
         """
@@ -400,10 +423,10 @@ class MemoryBackend(UserBackend):
     async def is_email_taken(self, email: str) -> bool:
         """
         Check if an email is already taken.
-        
+
         Args:
             email: The email to check
-            
+
         Returns:
             bool: True if the email is taken, False otherwise
         """
@@ -415,13 +438,13 @@ class MemoryBackend(UserBackend):
     async def get_user_settings(self, username: str) -> Dict[str, Any]:
         """
         Get user settings.
-        
+
         Args:
             username: The username of the user
-            
+
         Returns:
             Dict[str, Any]: User settings dictionary
-            
+
         Raises:
             UserNotFoundError: If the user is not found
         """
@@ -434,14 +457,16 @@ class MemoryBackend(UserBackend):
 
         return self._settings.get(user.id, {})
 
-    async def update_user_settings(self, username: str, settings: Dict[str, Any]) -> bool:
+    async def update_user_settings(
+        self, username: str, settings: Dict[str, Any]
+    ) -> bool:
         """
         Update user settings.
-        
+
         Args:
             username: The username of the user
             settings: The settings to update
-            
+
         Returns:
             bool: True if the settings were updated, False if user not found
         """
@@ -454,7 +479,7 @@ class MemoryBackend(UserBackend):
 
         if user.id not in self._settings:
             self._settings[user.id] = {}
-        
+
         self._settings[user.id].update(settings)
 
         logger.info(f"Updated settings for user '{username}'")
@@ -463,11 +488,11 @@ class MemoryBackend(UserBackend):
     async def update_user_username(self, old_username: str, new_username: str) -> bool:
         """
         Update a user's username.
-        
+
         Args:
             old_username: The current username
             new_username: The new username
-            
+
         Returns:
             bool: True if the username was updated, False if user not found or new username taken
         """
@@ -499,7 +524,7 @@ class MemoryBackend(UserBackend):
     async def get_all_users(self) -> List[UserPublic]:
         """
         Get all users in the backend.
-        
+
         Returns:
             List[UserPublic]: List of all users (public data only)
         """
@@ -511,7 +536,7 @@ class MemoryBackend(UserBackend):
                 username=user.username,
                 role=user.role,
                 yapcoin_balance=user.yapcoin_balance or 0,
-                profile_picture_url=user.profile_picture_url
+                profile_picture_url=user.profile_picture_url,
             )
             for user in self._users.values()
         ]
@@ -519,11 +544,11 @@ class MemoryBackend(UserBackend):
     async def update_user_yapcoin_balance(self, username: str, amount: int) -> bool:
         """
         Update a user's YapCoin balance.
-        
+
         Args:
             username: The username of the user
             amount: The amount to add/subtract from the balance
-            
+
         Returns:
             bool: True if the balance was updated, False if user not found
         """
@@ -535,19 +560,21 @@ class MemoryBackend(UserBackend):
 
         user_id = self._usernames[username]
         user = self._users[user_id]
-        
+
         # Initialize balance if None
         if user.yapcoin_balance is None:
             user.yapcoin_balance = 0
-            
+
         # Update the balance
         user.yapcoin_balance += amount
-        
+
         # Ensure balance doesn't go negative
         if user.yapcoin_balance < 0:
             user.yapcoin_balance = 0
 
-        logger.info(f"Updated YapCoin balance for user '{username}' by {amount} (new balance: {user.yapcoin_balance})")
+        logger.info(
+            f"Updated YapCoin balance for user '{username}' by {amount} (new balance: {user.yapcoin_balance})"
+        )
         return True
 
     async def close(self) -> None:
@@ -564,7 +591,7 @@ class MemoryBackend(UserBackend):
     async def health_check(self) -> bool:
         """
         Perform a health check on the in-memory backend.
-        
+
         Returns:
             bool: True if the backend is healthy, False otherwise
         """
@@ -573,7 +600,7 @@ class MemoryBackend(UserBackend):
     def clear(self) -> None:
         """
         Clear all data from the in-memory backend.
-        
+
         This method is useful for testing purposes.
         """
         self._users.clear()

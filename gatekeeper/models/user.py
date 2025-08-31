@@ -83,7 +83,7 @@ class User(BaseModel):
 class UserPublic(BaseModel):
     """
     Public User model, containing only non-sensitive information.
-    
+
     Used for API responses where sensitive data like password_hash should not be exposed.
     """
 
@@ -102,10 +102,10 @@ class UserPublic(BaseModel):
     def from_user(cls, user: "User") -> "UserPublic":
         """
         Create a UserPublic instance from a User instance.
-        
+
         Args:
             user: User instance to convert
-            
+
         Returns:
             UserPublic instance with public data only
         """
@@ -119,7 +119,7 @@ class UserPublic(BaseModel):
             is_active=user.is_active,
             created_at=user.created_at,
             updated_at=user.updated_at,
-            metadata=user.metadata or {}
+            metadata=user.metadata or {},
         )
 
 

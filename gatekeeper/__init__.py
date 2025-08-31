@@ -46,7 +46,12 @@ from .models.user import User, UserRole, UserCreate, UserPublic, UserUpdate
 from .models.token import TokenData, TokenResponse, TokenConfig
 
 # Backend exports
-from .backends.base import UserBackend, BackendError, UserNotFoundError, UserAlreadyExistsError
+from .backends.base import (
+    UserBackend,
+    BackendError,
+    UserNotFoundError,
+    UserAlreadyExistsError,
+)
 from .backends.memory import MemoryBackend
 from .backends.postgresql import PostgreSQLBackend
 
@@ -61,10 +66,9 @@ from .api.routes import create_auth_router
 __all__ = [
     # Core
     "AuthManager",
-    "TokenManager", 
+    "TokenManager",
     "PasswordManager",
     "SecurityLevel",
-    
     # Models
     "User",
     "UserRole",
@@ -74,7 +78,6 @@ __all__ = [
     "TokenData",
     "TokenResponse",
     "TokenConfig",
-    
     # Backends
     "UserBackend",
     "BackendError",
@@ -82,11 +85,9 @@ __all__ = [
     "UserAlreadyExistsError",
     "MemoryBackend",
     "PostgreSQLBackend",
-    
     # Utils
     "SecurityUtils",
     "PasswordValidator",
-    
     # API
     "get_current_user",
     "require_role",
