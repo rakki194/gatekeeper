@@ -2,8 +2,7 @@
 Password management for the Gatekeeper authentication library.
 
 This module provides a centralized interface for password hashing operations,
-supporting modern Argon2 hashing with optimal security parameters and
-migration from legacy bcrypt hashes.
+supporting modern Argon2 hashing with optimal security parameters.
 """
 
 import logging
@@ -21,11 +20,6 @@ except ImportError:
         "argon2-cffi is required for password hashing. "
         "Install with: pip install argon2-cffi"
     )
-
-try:
-    import bcrypt
-except ImportError:
-    bcrypt = None
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +79,7 @@ class PasswordManager:
     Password management class for secure password operations.
     
     Provides methods for hashing, verifying, and validating passwords using
-    modern cryptographic algorithms with automatic migration from legacy formats.
+    modern Argon2 cryptographic algorithms.
     """
 
     def __init__(self, security_level: SecurityLevel = SecurityLevel.MEDIUM):
@@ -168,7 +162,7 @@ class PasswordManager:
         """
         Verify a password against a hash.
 
-        Supports Argon2 hashes and legacy bcrypt hashes for backward compatibility.
+        Supports Argon2 hashes only.
 
         Args:
             password: Plain text password to verify
@@ -180,7 +174,7 @@ class PasswordManager:
         if not password or not hashed_password:
             return False
 
-        # Try Argon2 first (modern hashes)
+        # Try Argon2 (modern hashes)
         if self.is_argon2_hash(hashed_password):
             try:
                 password_hasher = self.get_password_hasher()
@@ -190,20 +184,6 @@ class PasswordManager:
                 return False
             except Exception as e:
                 logger.warning(f"Error verifying Argon2 hash: {e}")
-                return False
-
-        # Try bcrypt (legacy hashes)
-        elif self.is_bcrypt_hash(hashed_password):
-            if bcrypt is None:
-                logger.warning("bcrypt not available, cannot verify legacy hash")
-                return False
-
-            try:
-                return bcrypt.checkpw(
-                    password.encode("utf-8"), hashed_password.encode("utf-8")
-                )
-            except Exception as e:
-                logger.warning(f"Error verifying bcrypt hash: {e}")
                 return False
 
         # Unknown hash format
@@ -219,8 +199,7 @@ class PasswordManager:
 
         This method will:
         1. Verify the password against the current hash
-        2. Return a new hash if the current hash is using an outdated algorithm
-           or parameters (e.g., bcrypt instead of Argon2, or old Argon2 parameters)
+        2. Return a new hash if the current hash is using outdated parameters
 
         Args:
             password: Plain text password to verify
@@ -250,25 +229,6 @@ class PasswordManager:
                 return False, None
             except Exception as e:
                 logger.warning(f"Error verifying Argon2 hash: {e}")
-                return False, None
-
-        # Try bcrypt (legacy hashes)
-        elif self.is_bcrypt_hash(hashed_password):
-            if bcrypt is None:
-                logger.warning("bcrypt not available, cannot verify legacy hash")
-                return False, None
-
-            try:
-                if bcrypt.checkpw(
-                    password.encode("utf-8"), hashed_password.encode("utf-8")
-                ):
-                    # Migrate to Argon2
-                    new_hash = self.hash_password(password)
-                    logger.info("Migrated bcrypt hash to Argon2")
-                    return True, new_hash
-                return False, None
-            except Exception as e:
-                logger.warning(f"Error verifying bcrypt hash: {e}")
                 return False, None
 
         # Unknown hash format
@@ -326,20 +286,6 @@ class PasswordManager:
             logger.warning(f"Error parsing Argon2 hash parameters: {e}")
             return True
 
-    def is_bcrypt_hash(self, hashed_password: str) -> bool:
-        """
-        Check if a hash is in bcrypt format.
-
-        Args:
-            hashed_password: Password hash to check
-
-        Returns:
-            bool: True if the hash is in bcrypt format
-        """
-        # bcrypt hash pattern: $2a$ or $2b$ followed by rounds and salt/hash
-        bcrypt_pattern = r"^\$2[abxy]\$\d{2}\$[A-Za-z0-9+/.]{22}[A-Za-z0-9+/.]{31}$"
-        return bool(re.match(bcrypt_pattern, hashed_password))
-
     def is_argon2_hash(self, hashed_password: str) -> bool:
         """
         Check if a hash is in Argon2 format.
@@ -360,12 +306,10 @@ class PasswordManager:
             hashed_password: Password hash to analyze
 
         Returns:
-            str: Algorithm name ('argon2', 'bcrypt', or 'unknown')
+            str: Algorithm name ('argon2' or 'unknown')
         """
         if self.is_argon2_hash(hashed_password):
             return "argon2"
-        elif self.is_bcrypt_hash(hashed_password):
-            return "bcrypt"
         else:
             return "unknown"
 
@@ -522,15 +466,6 @@ class PasswordManager:
                             "time_cost": int(param_parts[1].split("=")[1]),
                             "parallelism": int(param_parts[2].split("=")[1]),
                         }
-            except Exception:
-                pass
-
-        elif info["algorithm"] == "bcrypt":
-            # Parse bcrypt parameters
-            try:
-                parts = hashed_password.split("$")
-                if len(parts) == 4:
-                    info["parameters"] = {"rounds": int(parts[2])}
             except Exception:
                 pass
 

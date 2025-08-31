@@ -6,7 +6,7 @@ providing secure user management, JWT token handling, role-based access control,
 and flexible backend integration.
 
 Features:
-- Secure password hashing with Argon2 and bcrypt support
+- Secure password hashing with Argon2
 - JWT token management with access and refresh tokens
 - Role-based access control (RBAC)
 - User profile management
@@ -48,6 +48,7 @@ from .models.token import TokenData, TokenResponse, TokenConfig
 # Backend exports
 from .backends.base import UserBackend, BackendError, UserNotFoundError, UserAlreadyExistsError
 from .backends.memory import MemoryBackend
+from .backends.postgresql import PostgreSQLBackend
 
 # Utility exports
 from .utils.security import SecurityUtils
@@ -80,6 +81,7 @@ __all__ = [
     "UserNotFoundError",
     "UserAlreadyExistsError",
     "MemoryBackend",
+    "PostgreSQLBackend",
     
     # Utils
     "SecurityUtils",

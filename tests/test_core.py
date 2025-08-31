@@ -58,35 +58,12 @@ class TestPasswordManager:
         assert hash_result.startswith("$argon2")
         assert password_manager.verify_password(password, hash_result) is True
     
-    def test_hash_password_bcrypt(self, password_manager):
-        """Test password hashing with bcrypt."""
-        password = "TestPassword123!"
-        # Use the bcrypt hasher directly
-        bcrypt_hasher = password_manager.get_password_hasher("bcrypt")
-        hash_result = bcrypt_hasher.hash(password)
-        
-        assert hash_result.startswith("$2b$")
-        assert password_manager.verify_password(password, hash_result) is True
-    
     def test_verify_password_wrong_password(self, password_manager):
         """Test password verification with wrong password."""
         password = "TestPassword123!"
         hash_result = password_manager.hash_password(password)
         
         assert password_manager.verify_password("WrongPassword123!", hash_result) is False
-    
-    def test_migrate_bcrypt_to_argon2(self, password_manager):
-        """Test migrating bcrypt hash to Argon2."""
-        # Create a bcrypt hash
-        password = "TestPassword123!"
-        bcrypt_hasher = password_manager.get_password_hasher("bcrypt")
-        bcrypt_hash = bcrypt_hasher.hash(password)
-        
-        # Migrate to Argon2
-        new_hash = password_manager.migrate_hash(password, bcrypt_hash)
-        
-        assert new_hash.startswith("$argon2")
-        assert password_manager.verify_password(password, new_hash) is True
     
     def test_validate_password_strength_strong(self, password_manager):
         """Test strong password validation."""
@@ -108,11 +85,8 @@ class TestPasswordManager:
     
     def test_get_password_hasher(self, password_manager):
         """Test getting password hasher."""
-        argon2_hasher = password_manager.get_password_hasher("argon2")
+        argon2_hasher = password_manager.get_password_hasher()
         assert argon2_hasher is not None
-        
-        bcrypt_hasher = password_manager.get_password_hasher("bcrypt")
-        assert bcrypt_hasher is not None
 
 
 class TestTokenManager:

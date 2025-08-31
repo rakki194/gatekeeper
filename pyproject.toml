@@ -30,7 +30,6 @@ dependencies = [
     "pydantic",
     "python-jose[cryptography]",
     "argon2-cffi",
-    "bcrypt",
     "python-multipart",
     "passlib",
 ]

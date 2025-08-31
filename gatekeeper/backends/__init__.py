@@ -13,6 +13,7 @@ from .base import (
 )
 
 from .memory import MemoryBackend
+from .postgresql import PostgreSQLBackend
 
 __all__ = [
     # Base classes
@@ -24,4 +25,5 @@ __all__ = [
     
     # Implementations
     "MemoryBackend",
+    "PostgreSQLBackend",
 ]

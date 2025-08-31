@@ -38,7 +38,7 @@ class UserModel(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default=dict)
+    user_metadata = Column(JSON, default=dict)
 
 
 class PostgreSQLBackend(UserBackend):
@@ -119,7 +119,7 @@ class PostgreSQLBackend(UserBackend):
                     is_active=db_user.is_active,
                     created_at=db_user.created_at,
                     updated_at=db_user.updated_at,
-                    metadata=db_user.metadata or {}
+                    metadata=db_user.user_metadata or {}
                 )
                 
             except IntegrityError as e:
@@ -136,9 +136,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """Retrieve a user by username."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -158,7 +158,7 @@ class PostgreSQLBackend(UserBackend):
                     is_active=db_user.is_active,
                     created_at=db_user.created_at,
                     updated_at=db_user.updated_at,
-                    metadata=db_user.metadata or {}
+                    metadata=db_user.user_metadata or {}
                 )
                 
             except SQLAlchemyError as e:
@@ -166,9 +166,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def get_user_by_id(self, user_id: str) -> Optional[User]:
         """Retrieve a user by ID."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.id == user_id
@@ -188,7 +188,7 @@ class PostgreSQLBackend(UserBackend):
                     is_active=db_user.is_active,
                     created_at=db_user.created_at,
                     updated_at=db_user.updated_at,
-                    metadata=db_user.metadata or {}
+                    metadata=db_user.user_metadata or {}
                 )
                 
             except SQLAlchemyError as e:
@@ -196,9 +196,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user(self, username: str, user_update: UserUpdate) -> User:
         """Update an existing user."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -239,7 +239,7 @@ class PostgreSQLBackend(UserBackend):
                     db_user.profile_picture_url = user_update.profile_picture_url
                 
                 if user_update.metadata is not None:
-                    db_user.metadata = user_update.metadata
+                    db_user.user_metadata = user_update.metadata
                 
                 db_user.updated_at = datetime.utcnow()
                 
@@ -257,7 +257,7 @@ class PostgreSQLBackend(UserBackend):
                     is_active=db_user.is_active,
                     created_at=db_user.created_at,
                     updated_at=db_user.updated_at,
-                    metadata=db_user.metadata or {}
+                    metadata=db_user.user_metadata or {}
                 )
                 
             except SQLAlchemyError as e:
@@ -266,9 +266,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def delete_user(self, username: str) -> bool:
         """Delete a user from the database."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -287,9 +287,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def list_users(self, skip: int = 0, limit: int = 100) -> List[UserPublic]:
         """List users in the database."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_users = session.query(UserModel).offset(skip).limit(limit).all()
                 
@@ -305,7 +305,7 @@ class PostgreSQLBackend(UserBackend):
                         is_active=db_user.is_active,
                         created_at=db_user.created_at,
                         updated_at=db_user.updated_at,
-                        metadata=db_user.metadata or {}
+                        metadata=db_user.user_metadata or {}
                     ))
                     for db_user in db_users
                 ]
@@ -315,9 +315,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def count_users(self) -> int:
         """Get the total number of users in the database."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 return session.query(UserModel).count()
             except SQLAlchemyError as e:
@@ -325,9 +325,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_password(self, username: str, new_password_hash: str) -> bool:
         """Update a user's password hash."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -347,9 +347,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_role(self, username: str, new_role: str) -> bool:
         """Update a user's role."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -369,9 +369,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_profile_picture(self, username: str, profile_picture_url: Optional[str]) -> bool:
         """Update a user's profile picture URL."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -391,9 +391,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_metadata(self, username: str, metadata: Dict[str, Any]) -> bool:
         """Update a user's metadata."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -402,7 +402,7 @@ class PostgreSQLBackend(UserBackend):
                 if not db_user:
                     return False
                 
-                db_user.metadata = metadata
+                db_user.user_metadata = metadata
                 db_user.updated_at = datetime.utcnow()
                 session.commit()
                 return True
@@ -413,9 +413,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def search_users(self, query: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
         """Search for users by username or email."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_users = session.query(UserModel).filter(
                     (UserModel.username.ilike(f"%{query}%")) |
@@ -434,7 +434,7 @@ class PostgreSQLBackend(UserBackend):
                         is_active=db_user.is_active,
                         created_at=db_user.created_at,
                         updated_at=db_user.updated_at,
-                        metadata=db_user.metadata or {}
+                        metadata=db_user.user_metadata or {}
                     ))
                     for db_user in db_users
                 ]
@@ -444,9 +444,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def get_users_by_role(self, role: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
         """Get users by role."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_users = session.query(UserModel).filter(
                     UserModel.role == role
@@ -464,7 +464,7 @@ class PostgreSQLBackend(UserBackend):
                         is_active=db_user.is_active,
                         created_at=db_user.created_at,
                         updated_at=db_user.updated_at,
-                        metadata=db_user.metadata or {}
+                        metadata=db_user.user_metadata or {}
                     ))
                     for db_user in db_users
                 ]
@@ -474,9 +474,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def is_username_taken(self, username: str) -> bool:
         """Check if a username is already taken."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 return session.query(UserModel).filter(
                     UserModel.username == username
@@ -486,9 +486,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def is_email_taken(self, email: str) -> bool:
         """Check if an email is already taken."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 return session.query(UserModel).filter(
                     UserModel.email == email
@@ -498,9 +498,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def get_user_settings(self, username: str) -> Dict[str, Any]:
         """Get user settings."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -509,16 +509,16 @@ class PostgreSQLBackend(UserBackend):
                 if not db_user:
                     raise UserNotFoundError(f"User '{username}' not found")
                 
-                return db_user.metadata or {}
+                return db_user.user_metadata or {}
                 
             except SQLAlchemyError as e:
                 raise BackendError(f"Database error: {e}")
     
     async def update_user_settings(self, username: str, settings: Dict[str, Any]) -> bool:
         """Update user settings."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -527,7 +527,7 @@ class PostgreSQLBackend(UserBackend):
                 if not db_user:
                     return False
                 
-                db_user.metadata = settings
+                db_user.user_metadata = settings
                 db_user.updated_at = datetime.utcnow()
                 session.commit()
                 return True
@@ -538,9 +538,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_username(self, old_username: str, new_username: str) -> bool:
         """Update a user's username."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 # Check if new username is already taken
                 existing = session.query(UserModel).filter(
@@ -567,9 +567,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def get_all_users(self) -> List[UserPublic]:
         """Get all users in the database."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_users = session.query(UserModel).all()
                 
@@ -585,7 +585,7 @@ class PostgreSQLBackend(UserBackend):
                         is_active=db_user.is_active,
                         created_at=db_user.created_at,
                         updated_at=db_user.updated_at,
-                        metadata=db_user.metadata or {}
+                        metadata=db_user.user_metadata or {}
                     ))
                     for db_user in db_users
                 ]
@@ -595,9 +595,9 @@ class PostgreSQLBackend(UserBackend):
     
     async def update_user_yapcoin_balance(self, username: str, amount: int) -> bool:
         """Update a user's YapCoin balance."""
-        await self._initialize_database()
+        self._initialize_database()
         
-        async with self._get_session() as session:
+        with self._get_session() as session:
             try:
                 db_user = session.query(UserModel).filter(
                     UserModel.username == username
@@ -624,9 +624,9 @@ class PostgreSQLBackend(UserBackend):
     async def health_check(self) -> bool:
         """Perform a health check on the database."""
         try:
-            await self._initialize_database()
-            async with self._get_session() as session:
-                session.execute("SELECT 1")
+            self._initialize_database()
+            with self._get_session() as session:
+                session.execute(text("SELECT 1"))
                 return True
         except Exception as e:
             logger.error(f"PostgreSQL health check failed: {e}")

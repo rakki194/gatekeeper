@@ -4,7 +4,7 @@ A comprehensive authentication and authorization library for Python applications
 
 ## Features
 
-- 🔐 **Secure Password Hashing**: Modern Argon2 hashing with automatic migration from legacy bcrypt
+- 🔐 **Secure Password Hashing**: Modern Argon2 hashing with optimal security parameters
 - 🎫 **JWT Token Management**: Access and refresh tokens with configurable expiration
 - 👥 **Role-Based Access Control**: Flexible role system (admin, regular, guest)
 - 🗄️ **Abstract Backend Interface**: Easy integration with any storage system
@@ -210,7 +210,7 @@ class MyDatabaseBackend(UserBackend):
 ### Password Security
 
 - **Argon2 Hashing**: Modern, memory-hard hashing algorithm
-- **Automatic Migration**: Seamless migration from bcrypt to Argon2
+- **Modern Security**: Argon2 with configurable security levels
 - **Configurable Security Levels**: Low, Medium, High, Paranoid
 - **Password Strength Validation**: Enforces strong password requirements
 

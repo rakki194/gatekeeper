@@ -1,0 +1,236 @@
+"""
+Tests for PostgreSQL backend functionality in the Gatekeeper library.
+"""
+
+import pytest
+import asyncio
+from datetime import datetime
+from unittest.mock import patch, MagicMock
+
+from gatekeeper.backends.postgresql import PostgreSQLBackend
+from gatekeeper.models.user import User, UserCreate, UserUpdate, UserPublic, UserRole
+
+
+class TestPostgreSQLBackend:
+    """Test cases for PostgreSQL backend."""
+    
+    @pytest.fixture
+    def backend(self):
+        """Create a PostgreSQL backend instance for testing."""
+        # Use a test database URL
+        database_url = "postgresql://test:test@localhost:5432/test_db"
+        return PostgreSQLBackend(database_url=database_url, echo=False)
+    
+    @pytest.mark.asyncio
+    async def test_create_user(self, backend):
+        """Test creating a user."""
+        user_create = UserCreate(
+            username="testuser",
+            password="TestPass123!",
+            email="test@example.com",
+            role=UserRole.REGULAR
+        )
+        
+        with patch.object(backend, '_get_session') as mock_session:
+            # Mock the session and database operations
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock user creation
+            mock_user = MagicMock()
+            mock_user.id = "test-uuid"
+            mock_user.username = "testuser"
+            mock_user.password_hash = "hashed_password"
+            mock_user.role = "regular"
+            mock_user.email = "test@example.com"
+            mock_user.profile_picture_url = None
+            mock_user.yapcoin_balance = 0
+            mock_user.is_active = True
+            mock_user.created_at = datetime.utcnow()
+            mock_user.updated_at = datetime.utcnow()
+            mock_user.metadata = {}
+            
+            mock_db.query.return_value.filter.return_value.first.return_value = None
+            mock_db.add.return_value = None
+            mock_db.commit.return_value = None
+            mock_db.refresh.return_value = None
+            
+            # Test user creation
+            user = await backend.create_user(user_create)
+            
+            assert user.username == "testuser"
+            assert user.email == "test@example.com"
+            assert user.role == UserRole.REGULAR
+            assert user.is_active is True
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_username(self, backend):
+        """Test retrieving a user by username."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock user retrieval
+            mock_user = MagicMock()
+            mock_user.id = "test-uuid"
+            mock_user.username = "testuser"
+            mock_user.password_hash = "hashed_password"
+            mock_user.role = "regular"
+            mock_user.email = "test@example.com"
+            mock_user.profile_picture_url = None
+            mock_user.yapcoin_balance = 0
+            mock_user.is_active = True
+            mock_user.created_at = datetime.utcnow()
+            mock_user.updated_at = datetime.utcnow()
+            mock_user.metadata = {}
+            
+            mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+            
+            # Test user retrieval
+            user = await backend.get_user_by_username("testuser")
+            
+            assert user is not None
+            assert user.username == "testuser"
+            assert user.email == "test@example.com"
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_username_not_found(self, backend):
+        """Test retrieving a non-existent user."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock user not found
+            mock_db.query.return_value.filter.return_value.first.return_value = None
+            
+            # Test user retrieval
+            user = await backend.get_user_by_username("nonexistent")
+            
+            assert user is None
+    
+    @pytest.mark.asyncio
+    async def test_update_user(self, backend):
+        """Test updating a user."""
+        user_update = UserUpdate(
+            email="newemail@example.com",
+            role=UserRole.ADMIN
+        )
+        
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock existing user
+            mock_user = MagicMock()
+            mock_user.id = "test-uuid"
+            mock_user.username = "testuser"
+            mock_user.password_hash = "hashed_password"
+            mock_user.role = "regular"
+            mock_user.email = "old@example.com"
+            mock_user.profile_picture_url = None
+            mock_user.yapcoin_balance = 0
+            mock_user.is_active = True
+            mock_user.created_at = datetime.utcnow()
+            mock_user.updated_at = datetime.utcnow()
+            mock_user.metadata = {}
+            
+            mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+            mock_db.commit.return_value = None
+            mock_db.refresh.return_value = None
+            
+            # Test user update
+            user = await backend.update_user("testuser", user_update)
+            
+            assert user.email == "newemail@example.com"
+            assert user.role == UserRole.ADMIN
+    
+    @pytest.mark.asyncio
+    async def test_delete_user(self, backend):
+        """Test deleting a user."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock existing user
+            mock_user = MagicMock()
+            mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+            mock_db.delete.return_value = None
+            mock_db.commit.return_value = None
+            
+            # Test user deletion
+            result = await backend.delete_user("testuser")
+            
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_list_users(self, backend):
+        """Test listing users."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock users list
+            mock_users = []
+            for i in range(3):
+                mock_user = MagicMock()
+                mock_user.id = f"user-{i}-uuid"
+                mock_user.username = f"user{i}"
+                mock_user.password_hash = "hashed_password"
+                mock_user.role = "regular"
+                mock_user.email = f"user{i}@example.com"
+                mock_user.profile_picture_url = None
+                mock_user.yapcoin_balance = 0
+                mock_user.is_active = True
+                mock_user.created_at = datetime.utcnow()
+                mock_user.updated_at = datetime.utcnow()
+                mock_user.metadata = {}
+                mock_users.append(mock_user)
+            
+            mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = mock_users
+            
+            # Test listing users
+            users = await backend.list_users(skip=0, limit=10)
+            
+            assert len(users) == 3
+            assert all(isinstance(user, UserPublic) for user in users)
+    
+    @pytest.mark.asyncio
+    async def test_count_users(self, backend):
+        """Test counting users."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock count
+            mock_db.query.return_value.count.return_value = 5
+            
+            # Test counting users
+            count = await backend.count_users()
+            
+            assert count == 5
+    
+    @pytest.mark.asyncio
+    async def test_health_check(self, backend):
+        """Test health check."""
+        with patch.object(backend, '_get_session') as mock_session:
+            mock_db = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_db
+            
+            # Mock successful health check
+            mock_db.execute.return_value = None
+            
+            # Test health check
+            is_healthy = await backend.health_check()
+            
+            assert is_healthy is True
+    
+    @pytest.mark.asyncio
+    async def test_close(self, backend):
+        """Test closing the backend."""
+        with patch.object(backend, 'engine') as mock_engine:
+            mock_engine.dispose.return_value = None
+            
+            # Test closing
+            await backend.close()
+            
+            mock_engine.dispose.assert_called_once()

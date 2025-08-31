@@ -105,7 +105,7 @@ class AuthManager:
             logger.warning(f"Authentication failed: invalid password for user '{username}'")
             return None
 
-        # Update password hash if needed (e.g., migration from bcrypt to Argon2)
+        # Update password hash if needed (e.g., migration to new Argon2 parameters)
         if updated_hash:
             await self.backend.update_user_password(username, updated_hash)
             logger.info(f"Updated password hash for user '{username}'")
