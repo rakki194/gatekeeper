@@ -1,0 +1,468 @@
+"""
+Authentication manager for the Gatekeeper authentication library.
+
+This module provides the main authentication manager that orchestrates
+user authentication, authorization, and management operations.
+"""
+
+import logging
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+from ..models.user import User, UserCreate, UserUpdate, UserPublic, UserLogin, UserPasswordChange
+from ..models.token import TokenResponse, TokenConfig
+from ..backends.base import UserBackend, BackendError, UserNotFoundError, UserAlreadyExistsError, InvalidCredentialsError
+from .password_manager import PasswordManager, SecurityLevel
+from .token_manager import TokenManager
+
+logger = logging.getLogger(__name__)
+
+
+class AuthManager:
+    """
+    Main authentication manager for the Gatekeeper library.
+    
+    This class orchestrates all authentication and authorization operations,
+    including user management, password handling, and token management.
+    """
+
+    def __init__(
+        self,
+        backend: UserBackend,
+        token_config: TokenConfig,
+        password_security_level: SecurityLevel = SecurityLevel.MEDIUM
+    ):
+        """
+        Initialize the authentication manager.
+        
+        Args:
+            backend: User data storage backend
+            token_config: JWT token configuration
+            password_security_level: Security level for password hashing
+        """
+        self.backend = backend
+        self.token_config = token_config
+        self.password_manager = PasswordManager(security_level=password_security_level)
+        self.token_manager = TokenManager(token_config)
+
+    async def create_user(self, user: UserCreate) -> User:
+        """
+        Create a new user with hashed password.
+        
+        Args:
+            user: User creation data
+            
+        Returns:
+            User: The created user object
+            
+        Raises:
+            UserAlreadyExistsError: If a user with the same username already exists
+            BackendError: For other backend-specific errors
+        """
+        # Hash the password
+        password_hash = self.password_manager.hash_password(user.password)
+        
+        # Create user in backend
+        created_user = await self.backend.create_user(user)
+        
+        # Update the password hash
+        await self.backend.update_user_password(created_user.username, password_hash)
+        
+        # Return user with hashed password
+        created_user.password_hash = password_hash
+        
+        logger.info(f"Created user '{user.username}' with role '{user.role}'")
+        return created_user
+
+    async def authenticate(self, username: str, password: str) -> Optional[TokenResponse]:
+        """
+        Authenticate a user with username and password.
+        
+        Args:
+            username: The username
+            password: The plain text password
+            
+        Returns:
+            Optional[TokenResponse]: Token response if authentication successful, None otherwise
+        """
+        # Get user from backend
+        user = await self.backend.get_user_by_username(username)
+        if not user:
+            logger.warning(f"Authentication failed: user '{username}' not found")
+            return None
+
+        # Check if user is active
+        if not user.is_active:
+            logger.warning(f"Authentication failed: user '{username}' is inactive")
+            return None
+
+        # Verify password
+        is_valid, updated_hash = self.password_manager.verify_and_update_password(
+            password, user.password_hash
+        )
+        
+        if not is_valid:
+            logger.warning(f"Authentication failed: invalid password for user '{username}'")
+            return None
+
+        # Update password hash if needed (e.g., migration from bcrypt to Argon2)
+        if updated_hash:
+            await self.backend.update_user_password(username, updated_hash)
+            logger.info(f"Updated password hash for user '{username}'")
+
+        # Create token pair
+        tokens = self.token_manager.create_token_pair(username, user.role.value)
+        
+        logger.info(f"User '{username}' authenticated successfully")
+        return tokens
+
+    async def refresh_token(self, refresh_token: str) -> Optional[str]:
+        """
+        Refresh an access token using a refresh token.
+        
+        Args:
+            refresh_token: The refresh token
+            
+        Returns:
+            Optional[str]: New access token if refresh successful, None otherwise
+        """
+        return self.token_manager.refresh_access_token(refresh_token)
+
+    async def get_current_user(self, token: str) -> Optional[User]:
+        """
+        Get the current user from a JWT token.
+        
+        Args:
+            token: The JWT access token
+            
+        Returns:
+            Optional[User]: The user if token is valid, None otherwise
+        """
+        result = self.token_manager.verify_access_token(token)
+        
+        if not result.is_valid or not result.payload:
+            return None
+
+        # Get user from backend to ensure data consistency
+        user = await self.backend.get_user_by_username(result.payload.sub)
+        if not user:
+            logger.warning(f"User '{result.payload.sub}' not found in backend")
+            return None
+
+        if not user.is_active:
+            logger.warning(f"User '{result.payload.sub}' is inactive")
+            return None
+
+        return user
+
+    async def change_password(self, username: str, current_password: str, new_password: str) -> bool:
+        """
+        Change a user's password.
+        
+        Args:
+            username: The username
+            current_password: The current password for verification
+            new_password: The new password
+            
+        Returns:
+            bool: True if password was changed successfully, False otherwise
+        """
+        # Get user
+        user = await self.backend.get_user_by_username(username)
+        if not user:
+            return False
+
+        # Verify current password
+        is_valid, _ = self.password_manager.verify_and_update_password(
+            current_password, user.password_hash
+        )
+        
+        if not is_valid:
+            return False
+
+        # Hash new password
+        new_password_hash = self.password_manager.hash_password(new_password)
+        
+        # Update password in backend
+        success = await self.backend.update_user_password(username, new_password_hash)
+        
+        if success:
+            logger.info(f"Password changed for user '{username}'")
+        
+        return success
+
+    async def update_user(self, username: str, user_update: UserUpdate) -> Optional[User]:
+        """
+        Update user information.
+        
+        Args:
+            username: The username of the user to update
+            user_update: The update data
+            
+        Returns:
+            Optional[User]: The updated user if successful, None otherwise
+        """
+        try:
+            updated_user = await self.backend.update_user(username, user_update)
+            logger.info(f"Updated user '{username}'")
+            return updated_user
+        except (UserNotFoundError, UserAlreadyExistsError) as e:
+            logger.warning(f"Failed to update user '{username}': {e}")
+            return None
+
+    async def delete_user(self, username: str) -> bool:
+        """
+        Delete a user.
+        
+        Args:
+            username: The username of the user to delete
+            
+        Returns:
+            bool: True if user was deleted, False otherwise
+        """
+        success = await self.backend.delete_user(username)
+        
+        if success:
+            logger.info(f"Deleted user '{username}'")
+        
+        return success
+
+    async def list_users(self, skip: int = 0, limit: int = 100) -> List[UserPublic]:
+        """
+        List users in the system.
+        
+        Args:
+            skip: Number of users to skip (for pagination)
+            limit: Maximum number of users to return
+            
+        Returns:
+            List[UserPublic]: List of users (public data only)
+        """
+        return await self.backend.list_users(skip=skip, limit=limit)
+
+    async def get_user_by_username(self, username: str) -> Optional[User]:
+        """
+        Get a user by username.
+        
+        Args:
+            username: The username to search for
+            
+        Returns:
+            Optional[User]: The user if found, None otherwise
+        """
+        return await self.backend.get_user_by_username(username)
+
+    async def search_users(self, query: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
+        """
+        Search for users.
+        
+        Args:
+            query: Search query string
+            skip: Number of users to skip (for pagination)
+            limit: Maximum number of users to return
+            
+        Returns:
+            List[UserPublic]: List of matching users
+        """
+        return await self.backend.search_users(query, skip=skip, limit=limit)
+
+    async def get_users_by_role(self, role: str, skip: int = 0, limit: int = 100) -> List[UserPublic]:
+        """
+        Get users by role.
+        
+        Args:
+            role: The role to filter by
+            skip: Number of users to skip (for pagination)
+            limit: Maximum number of users to return
+            
+        Returns:
+            List[UserPublic]: List of users with the specified role
+        """
+        return await self.backend.get_users_by_role(role, skip=skip, limit=limit)
+
+    async def update_user_role(self, username: str, new_role: str) -> bool:
+        """
+        Update a user's role.
+        
+        Args:
+            username: The username of the user
+            new_role: The new role
+            
+        Returns:
+            bool: True if role was updated, False otherwise
+        """
+        success = await self.backend.update_user_role(username, new_role)
+        
+        if success:
+            logger.info(f"Updated role for user '{username}' to '{new_role}'")
+        
+        return success
+
+    async def update_user_profile_picture(self, username: str, profile_picture_url: Optional[str]) -> bool:
+        """
+        Update a user's profile picture.
+        
+        Args:
+            username: The username of the user
+            profile_picture_url: The new profile picture URL or None to remove
+            
+        Returns:
+            bool: True if profile picture was updated, False otherwise
+        """
+        return await self.backend.update_user_profile_picture(username, profile_picture_url)
+
+    async def get_user_settings(self, username: str) -> Dict[str, Any]:
+        """
+        Get user settings.
+        
+        Args:
+            username: The username of the user
+            
+        Returns:
+            Dict[str, Any]: User settings dictionary
+        """
+        return await self.backend.get_user_settings(username)
+
+    async def update_user_settings(self, username: str, settings: Dict[str, Any]) -> bool:
+        """
+        Update user settings.
+        
+        Args:
+            username: The username of the user
+            settings: The settings to update
+            
+        Returns:
+            bool: True if settings were updated, False otherwise
+        """
+        return await self.backend.update_user_settings(username, settings)
+
+    async def update_user_username(self, old_username: str, new_username: str) -> bool:
+        """
+        Update a user's username.
+        
+        Args:
+            old_username: The current username
+            new_username: The new username
+            
+        Returns:
+            bool: True if username was updated, False otherwise
+        """
+        success = await self.backend.update_user_username(old_username, new_username)
+        
+        if success:
+            logger.info(f"Updated username from '{old_username}' to '{new_username}'")
+        
+        return success
+
+    async def get_all_users(self) -> List[UserPublic]:
+        """
+        Get all users in the system.
+        
+        Returns:
+            List[UserPublic]: List of all users (public data only)
+        """
+        return await self.backend.get_all_users()
+
+    async def update_user_yapcoin_balance(self, username: str, amount: int) -> bool:
+        """
+        Update a user's YapCoin balance.
+        
+        This method is optional and may not be supported by all backends.
+        
+        Args:
+            username: The username of the user
+            amount: The amount to add/subtract from the balance
+            
+        Returns:
+            bool: True if balance was updated, False otherwise or if not supported
+        """
+        try:
+            success = await self.backend.update_user_yapcoin_balance(username, amount)
+            
+            if success:
+                logger.info(f"Updated YapCoin balance for user '{username}' by {amount}")
+            else:
+                logger.warning(f"YapCoin balance update failed for user '{username}' or not supported by backend")
+            
+            return success
+        except Exception as e:
+            logger.warning(f"YapCoin balance update not supported by backend: {e}")
+            return False
+
+    async def is_username_taken(self, username: str) -> bool:
+        """
+        Check if a username is already taken.
+        
+        Args:
+            username: The username to check
+            
+        Returns:
+            bool: True if the username is taken, False otherwise
+        """
+        return await self.backend.is_username_taken(username)
+
+    async def is_email_taken(self, email: str) -> bool:
+        """
+        Check if an email is already taken.
+        
+        Args:
+            email: The email to check
+            
+        Returns:
+            bool: True if the email is taken, False otherwise
+        """
+        return await self.backend.is_email_taken(email)
+
+    async def count_users(self) -> int:
+        """
+        Get the total number of users.
+        
+        Returns:
+            int: Total number of users
+        """
+        return await self.backend.count_users()
+
+    def validate_password_strength(self, password: str) -> tuple[bool, str]:
+        """
+        Validate password strength.
+        
+        Args:
+            password: The password to validate
+            
+        Returns:
+            tuple[bool, str]: (is_strong, reason)
+        """
+        return self.password_manager.validate_password_strength(password)
+
+    def verify_token(self, token: str) -> bool:
+        """
+        Verify if a token is valid.
+        
+        Args:
+            token: The JWT token to verify
+            
+        Returns:
+            bool: True if token is valid, False otherwise
+        """
+        result = self.token_manager.verify_access_token(token)
+        return result.is_valid
+
+    async def close(self) -> None:
+        """
+        Close the authentication manager and clean up resources.
+        """
+        await self.backend.close()
+        logger.info("Authentication manager closed")
+
+    async def health_check(self) -> bool:
+        """
+        Perform a health check on the authentication system.
+        
+        Returns:
+            bool: True if the system is healthy, False otherwise
+        """
+        try:
+            return await self.backend.health_check()
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return False
