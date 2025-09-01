@@ -217,6 +217,38 @@ class PostgreSQLBackend(UserBackend):
             except SQLAlchemyError as e:
                 raise BackendError(f"Database error: {e}")
 
+    async def get_user_by_email(self, email: str) -> Optional[User]:
+        """Retrieve a user by email address."""
+        self._initialize_database()
+
+        with self._get_session() as session:
+            try:
+                db_user = (
+                    session.query(UserModel)
+                    .filter(UserModel.email == email)
+                    .first()
+                )
+
+                if not db_user:
+                    return None
+
+                return User(
+                    id=str(db_user.id),
+                    username=db_user.username,
+                    password_hash=db_user.password_hash,
+                    role=UserRole(db_user.role),
+                    email=db_user.email,
+                    profile_picture_url=db_user.profile_picture_url,
+                    yapcoin_balance=db_user.yapcoin_balance,
+                    is_active=db_user.is_active,
+                    created_at=db_user.created_at,
+                    updated_at=db_user.updated_at,
+                    metadata=db_user.user_metadata or {},
+                )
+
+            except SQLAlchemyError as e:
+                raise BackendError(f"Database error: {e}")
+
     async def update_user(self, username: str, user_update: UserUpdate) -> User:
         """Update an existing user."""
         self._initialize_database()

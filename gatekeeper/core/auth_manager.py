@@ -7,7 +7,7 @@ user authentication, authorization, and management operations.
 
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..models.user import User, UserCreate, UserUpdate, UserPublic, UserLogin, UserPasswordChange
 from ..models.token import TokenResponse, TokenConfig
@@ -115,6 +115,53 @@ class AuthManager:
         
         logger.info(f"User '{username}' authenticated successfully")
         return tokens
+
+    async def authenticate_by_email(self, email: str, password: str) -> Optional[TokenResponse]:
+        """
+        Authenticate a user with email and password.
+        
+        Args:
+            email: The email address
+            password: The plain text password
+            
+        Returns:
+            Optional[TokenResponse]: Token response if authentication successful, None otherwise
+        """
+        try:
+            # Get user from backend by email
+            user = await self.backend.get_user_by_email(email)
+            if not user:
+                logger.warning(f"Authentication failed: user with email '{email}' not found")
+                return None
+
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(f"Authentication failed: user with email '{email}' is inactive")
+                return None
+
+            # Verify password
+            is_valid, updated_hash = self.password_manager.verify_and_update_password(
+                password, user.password_hash
+            )
+            
+            if not is_valid:
+                logger.warning(f"Authentication failed: invalid password for user with email '{email}'")
+                return None
+
+            # Update password hash if needed (e.g., migration to new Argon2 parameters)
+            if updated_hash:
+                await self.backend.update_user_password(user.username, updated_hash)
+                logger.info(f"Updated password hash for user '{user.username}'")
+
+            # Create token pair
+            tokens = self.token_manager.create_token_pair(user.username, user.role.value)
+            
+            logger.info(f"User with email '{email}' authenticated successfully")
+            return tokens
+            
+        except Exception as e:
+            logger.error(f"Error during email authentication: {e}")
+            return None
 
     async def refresh_token(self, refresh_token: str) -> Optional[str]:
         """
@@ -446,6 +493,131 @@ class AuthManager:
         """
         result = self.token_manager.verify_access_token(token)
         return result.is_valid
+
+    async def request_password_reset(self, email: str) -> Optional[str]:
+        """
+        Request a password reset for a user.
+        
+        This method generates a secure reset token and stores it temporarily.
+        In a production environment, this token would be sent via email.
+        
+        Args:
+            email: The email address of the user requesting password reset
+            
+        Returns:
+            Optional[str]: Reset token if successful, None if user not found
+        """
+        try:
+            # Find user by email
+            user = await self.backend.get_user_by_email(email)
+            if not user:
+                logger.warning(f"Password reset requested for non-existent email: {email}")
+                return None
+
+            if not user.is_active:
+                logger.warning(f"Password reset requested for inactive user: {email}")
+                return None
+
+            # Generate a secure reset token
+            reset_token = self.token_manager.create_reset_token(email)
+            
+            # Store the reset token in user metadata (in production, this would be in a separate table)
+            if not user.metadata:
+                user.metadata = {}
+            
+            user.metadata["reset_token"] = reset_token
+            user.metadata["reset_token_expires"] = (datetime.now() + timedelta(hours=24)).isoformat()
+            
+            # Update user with reset token
+            from ..models.user import UserUpdate
+            user_update = UserUpdate(metadata=user.metadata)
+            await self.backend.update_user(user.username, user_update)
+            
+            logger.info(f"Password reset token generated for user: {user.username}")
+            return reset_token
+            
+        except Exception as e:
+            logger.error(f"Error requesting password reset for {email}: {e}")
+            return None
+
+    async def reset_password_with_token(self, reset_token: str, new_password: str) -> bool:
+        """
+        Reset a user's password using a valid reset token.
+        
+        Args:
+            reset_token: The reset token from request_password_reset
+            new_password: The new password
+            
+        Returns:
+            bool: True if password was reset successfully, False otherwise
+        """
+        try:
+            # Verify the reset token
+            token_data = self.token_manager.verify_reset_token(reset_token)
+            if not token_data or not token_data.is_valid:
+                logger.warning("Invalid reset token used")
+                return False
+
+            email = token_data.payload.sub if token_data.payload else None
+            if not email:
+                logger.warning("Reset token missing email payload")
+                return False
+
+            # Find user by email
+            user = await self.backend.get_user_by_email(email)
+            if not user:
+                logger.warning(f"User not found for reset token: {email}")
+                return False
+
+            if not user.is_active:
+                logger.warning(f"Password reset attempted for inactive user: {email}")
+                return False
+
+            # Verify the token matches what's stored in user metadata
+            if not user.metadata or user.metadata.get("reset_token") != reset_token:
+                logger.warning(f"Reset token mismatch for user: {user.username}")
+                return False
+
+            # Check if token has expired (24 hours)
+            token_expires = user.metadata.get("reset_token_expires")
+            if token_expires:
+                try:
+                    expires_dt = datetime.fromisoformat(token_expires)
+                    if datetime.now() > expires_dt:
+                        logger.warning(f"Reset token expired for user: {user.username}")
+                        return False
+                except Exception as e:
+                    logger.warning(f"Error parsing token expiration: {e}")
+                    return False
+
+            # Validate new password strength
+            is_strong, reason = self.password_manager.validate_password_strength(new_password)
+            if not is_strong:
+                logger.warning(f"Password reset failed - weak password: {reason}")
+                return False
+
+            # Hash the new password
+            new_password_hash = self.password_manager.hash_password(new_password)
+            
+            # Update the password
+            success = await self.backend.update_user_password(user.username, new_password_hash)
+            if not success:
+                logger.error(f"Failed to update password for user: {user.username}")
+                return False
+
+            # Clear the reset token from metadata
+            if user.metadata:
+                user.metadata.pop("reset_token", None)
+                user.metadata.pop("reset_token_expires", None)
+                user_update = UserUpdate(metadata=user.metadata)
+                await self.backend.update_user(user.username, user_update)
+
+            logger.info(f"Password reset successful for user: {user.username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error resetting password with token: {e}")
+            return False
 
     async def close(self) -> None:
         """

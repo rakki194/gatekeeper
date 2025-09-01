@@ -86,6 +86,19 @@ class UserBackend(ABC):
         pass
 
     @abstractmethod
+    async def get_user_by_email(self, email: str) -> Optional[User]:
+        """
+        Retrieve a user by email address.
+
+        Args:
+            email: The email address to search for
+
+        Returns:
+            Optional[User]: The user if found, None otherwise
+        """
+        pass
+
+    @abstractmethod
     async def update_user(self, username: str, user_update: UserUpdate) -> User:
         """
         Update an existing user.

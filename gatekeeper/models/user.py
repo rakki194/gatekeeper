@@ -282,3 +282,66 @@ class UserPasswordChange(BaseModel):
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
             raise ValueError("Password must contain at least one special character")
         return value
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    Password reset request model.
+
+    Attributes:
+        email (str): Email address to send reset link to
+    """
+
+    email: str = Field(..., description="Email address for password reset")
+
+
+class PasswordResetToken(BaseModel):
+    """
+    Password reset token model.
+
+    Attributes:
+        token (str): The reset token
+        new_password (str): New password
+    """
+
+    token: str = Field(..., description="Password reset token")
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        description="New password. Must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.",
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_complexity(cls, value: str) -> str:
+        """
+        Validate password complexity requirements.
+
+        Ensures password contains at least:
+        - One uppercase letter
+        - One lowercase letter
+        - One digit
+        - One special character
+        """
+        if not re.search(r"[A-Z]", value):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", value):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", value):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise ValueError("Password must contain at least one special character")
+        return value
+
+
+class PasswordResetResponse(BaseModel):
+    """
+    Password reset response model.
+
+    Attributes:
+        message (str): Success message
+        token (Optional[str]): Reset token (for development/testing)
+    """
+
+    message: str = Field(..., description="Success message")
+    token: Optional[str] = Field(None, description="Reset token (for development/testing)")

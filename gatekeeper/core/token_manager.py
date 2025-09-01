@@ -159,8 +159,17 @@ class TokenManager:
             token_type: str = payload.get("type")
             role: str = payload.get("role")
             
-            # Validate required fields
-            if not username or not role:
+            # Validate required fields (role is not required for reset tokens)
+            if not username:
+                return TokenValidationResult(
+                    is_valid=False,
+                    error="Missing required token fields",
+                    is_expired=False,
+                    is_refresh_token=False
+                )
+            
+            # For non-reset tokens, role is required
+            if token_type != "reset" and not role:
                 return TokenValidationResult(
                     is_valid=False,
                     error="Missing required token fields",
@@ -174,7 +183,7 @@ class TokenManager:
             # Create token data object
             token_data = TokenData(
                 sub=username,
-                role=role,
+                role=role or "",  # Default to empty string for reset tokens
                 type=token_type or "access",
                 exp=datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.utc) if payload.get("exp") else None,
                 iat=datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.utc) if payload.get("iat") else None,
@@ -319,6 +328,60 @@ class TokenManager:
         if exp_time is None:
             return True
         return datetime.now(timezone.utc) > exp_time
+
+    def create_reset_token(self, email: str) -> str:
+        """
+        Create a password reset token.
+
+        Args:
+            email: The email address for the reset token
+
+        Returns:
+            str: The encoded JWT reset token
+        """
+        to_encode = {
+            "sub": email,
+            "type": "reset",
+            "jti": secrets.token_urlsafe(32)
+        }
+        
+        # Reset tokens expire in 24 hours
+        expire = datetime.now(timezone.utc) + timedelta(hours=24)
+        to_encode.update({
+            "exp": expire,
+            "iat": datetime.now(timezone.utc)
+        })
+        
+        # Add optional claims
+        if self.config.issuer:
+            to_encode["iss"] = self.config.issuer
+        if self.config.audience:
+            to_encode["aud"] = self.config.audience
+            
+        encoded_jwt = jwt.encode(to_encode, self.config.secret_key, algorithm=self.config.algorithm)
+        return encoded_jwt
+
+    def verify_reset_token(self, token: str) -> TokenValidationResult:
+        """
+        Verifies a JWT reset token specifically.
+
+        Args:
+            token: The JWT reset token to verify
+
+        Returns:
+            TokenValidationResult: Validation result
+        """
+        result = self.verify_token(token)
+        
+        if result.is_valid and result.payload and result.payload.type != "reset":
+            return TokenValidationResult(
+                is_valid=False,
+                error="Token is not a reset token",
+                is_expired=False,
+                is_refresh_token=False
+            )
+        
+        return result
 
     def get_token_info(self, token: str) -> Dict[str, Any]:
         """

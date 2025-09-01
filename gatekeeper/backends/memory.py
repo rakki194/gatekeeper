@@ -120,6 +120,24 @@ class MemoryBackend(UserBackend):
 
         return self._users.get(user_id)
 
+    async def get_user_by_email(self, email: str) -> Optional[User]:
+        """
+        Retrieve a user by email address.
+
+        Args:
+            email: The email address to search for
+
+        Returns:
+            Optional[User]: The user if found, None otherwise
+        """
+        if self._closed:
+            raise BackendError("Backend is closed")
+
+        user_id = self._emails.get(email)
+        if user_id:
+            return self._users.get(user_id)
+        return None
+
     async def update_user(self, username: str, user_update: UserUpdate) -> User:
         """
         Update an existing user.
