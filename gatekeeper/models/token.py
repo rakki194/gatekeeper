@@ -34,6 +34,15 @@ class TokenData(BaseModel):
     jti: Optional[str] = Field(default=None, description="JWT ID for token uniqueness")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
+    @property
+    def username(self) -> str:
+        """Get username from subject field for backward compatibility."""
+        return self.sub
+
+    def update(self, **kwargs) -> "TokenData":
+        """Update token data for backward compatibility with tests."""
+        return self.model_copy(update=kwargs)
+
 
 class TokenResponse(BaseModel):
     """

@@ -74,17 +74,23 @@ class AuthManager:
         logger.info(f"Created user '{user.username}' with role '{user.role}'")
         return created_user
 
-    async def authenticate(self, username: str, password: str) -> Optional[TokenResponse]:
+    async def authenticate(self, username: str, password: str, client_ip: str = None) -> Optional[TokenResponse]:
         """
         Authenticate a user with username and password.
         
         Args:
             username: The username
             password: The plain text password
+            client_ip: Client IP address for rate limiting
             
         Returns:
             Optional[TokenResponse]: Token response if authentication successful, None otherwise
         """
+        # Rate limiting check
+        if client_ip and not self.token_manager.check_rate_limit(client_ip):
+            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+            return None
+        
         # Get user from backend
         user = await self.backend.get_user_by_username(username)
         if not user:
@@ -104,16 +110,25 @@ class AuthManager:
         if not is_valid:
             logger.warning(f"Authentication failed: invalid password for user '{username}'")
             return None
-
-        # Update password hash if needed (e.g., migration to new Argon2 parameters)
+        
+        # Update password hash if needed
         if updated_hash:
             await self.backend.update_user_password(username, updated_hash)
-            logger.info(f"Updated password hash for user '{username}'")
-
-        # Create token pair
-        tokens = self.token_manager.create_token_pair(username, user.role.value)
+            logger.info(f"Password hash updated for user '{username}'")
         
+        # Create tokens
+        token_data = {
+            "sub": user.username,
+            "role": user.role.value,
+            "permissions": user.permissions or [],
+            "user_id": str(user.id)
+        }
+        
+        tokens = self.token_manager.create_tokens(token_data)
+        
+        # Log successful authentication
         logger.info(f"User '{username}' authenticated successfully")
+        
         return tokens
 
     async def authenticate_by_email(self, email: str, password: str) -> Optional[TokenResponse]:
@@ -163,44 +178,174 @@ class AuthManager:
             logger.error(f"Error during email authentication: {e}")
             return None
 
-    async def refresh_token(self, refresh_token: str) -> Optional[str]:
+    async def refresh_tokens(self, refresh_token: str, client_ip: str = None) -> Optional[TokenResponse]:
         """
-        Refresh an access token using a refresh token.
+        Refresh access token using a valid refresh token.
+        
+        Args:
+            refresh_token: The refresh token
+            client_ip: Client IP address for rate limiting
+            
+        Returns:
+            Optional[TokenResponse]: New tokens if refresh successful, None otherwise
+        """
+        # Rate limiting check
+        if client_ip and not self.token_manager.check_rate_limit(client_ip):
+            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+            return None
+        
+        # Verify refresh token
+        result = self.token_manager.verify_token(refresh_token, "refresh")
+        if not result.is_valid:
+            logger.warning("Token refresh failed: invalid refresh token")
+            return None
+        
+        # Get user data from token
+        username = result.payload.sub if result.payload else None
+        if not username:
+            logger.warning("Token refresh failed: missing username in token")
+            return None
+        
+        # Get user from backend to ensure they still exist and are active
+        user = await self.backend.get_user_by_username(username)
+        if not user or not user.is_active:
+            logger.warning(f"Token refresh failed: user '{username}' not found or inactive")
+            return None
+        
+        # Create new tokens
+        token_data = {
+            "sub": user.username,
+            "role": user.role.value,
+            "permissions": user.permissions or [],
+            "user_id": str(user.id)
+        }
+        
+        tokens = self.token_manager.create_tokens(token_data)
+        
+        logger.info(f"Tokens refreshed successfully for user '{username}'")
+        return tokens
+
+    # Backward-compatible alias for tests
+    async def refresh_token(self, refresh_token: str) -> Optional[TokenResponse]:
+        """
+        Backward-compatible alias for refresh_tokens.
         
         Args:
             refresh_token: The refresh token
             
         Returns:
-            Optional[str]: New access token if refresh successful, None otherwise
+            Optional[TokenResponse]: New tokens if refresh successful, None otherwise
         """
-        return self.token_manager.refresh_access_token(refresh_token)
+        return await self.refresh_tokens(refresh_token)
+
+    async def revoke_tokens(self, username: str, token: str = None) -> bool:
+        """
+        Revoke tokens for a user.
+        
+        Args:
+            username: The username whose tokens should be revoked
+            token: Specific token to revoke (if None, revokes all user tokens)
+            
+        Returns:
+            bool: True if tokens were revoked successfully
+        """
+        if token:
+            # Revoke specific token
+            self.token_manager.blacklist_token(token)
+            logger.info(f"Token revoked for user '{username}'")
+        else:
+            # Revoke all user tokens
+            self.token_manager.revoke_user_tokens(username)
+            logger.info(f"All tokens revoked for user '{username}'")
+        
+        return True
+
+    async def logout(self, token: str) -> bool:
+        """
+        Logout a user by revoking their token.
+        
+        Args:
+            token: The token to revoke
+            
+        Returns:
+            bool: True if logout successful
+        """
+        # Get token info to log the logout
+        token_info = self.token_manager.get_token_info(token)
+        username = token_info.get("sub") if token_info else "unknown"
+        
+        # Revoke the token
+        self.token_manager.blacklist_token(token)
+        
+        logger.info(f"User '{username}' logged out successfully")
+        return True
 
     async def get_current_user(self, token: str) -> Optional[User]:
         """
-        Get the current user from a JWT token.
+        Get the current user from a valid token.
         
         Args:
-            token: The JWT access token
+            token: The JWT token
             
         Returns:
             Optional[User]: The user if token is valid, None otherwise
         """
-        result = self.token_manager.verify_access_token(token)
+        # Verify the token
+        result = self.token_manager.verify_token(token, "access")
+        if not result.is_valid:
+            logger.warning("Failed to get current user: invalid token")
+            return None
         
-        if not result.is_valid or not result.payload:
+        # Extract username from token
+        username = result.payload.sub if result.payload else None
+        if not username:
+            logger.warning("Failed to get current user: missing username in token")
             return None
-
-        # Get user from backend to ensure data consistency
-        user = await self.backend.get_user_by_username(result.payload.sub)
-        if not user:
-            logger.warning(f"User '{result.payload.sub}' not found in backend")
+        
+        # Get user from backend
+        user = await self.backend.get_user_by_username(username)
+        if not user or not user.is_active:
+            logger.warning(f"Failed to get current user: user '{username}' not found or inactive")
             return None
-
-        if not user.is_active:
-            logger.warning(f"User '{result.payload.sub}' is inactive")
-            return None
-
+        
         return user
+
+    async def validate_token(self, token: str, required_role: str = None) -> bool:
+        """
+        Validate a token and optionally check role requirements.
+        
+        Args:
+            token: The JWT token to validate
+            required_role: Optional role requirement
+            
+        Returns:
+            bool: True if token is valid and meets role requirements
+        """
+        # Verify the token
+        result = self.token_manager.verify_token(token, "access")
+        if not result.is_valid:
+            return False
+        
+        # Check role requirement if specified
+        if required_role:
+            user_role = result.payload.role if result.payload else None
+            if user_role != required_role:
+                return False
+        
+        return True
+
+    async def get_token_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about token usage and blacklist.
+        
+        Returns:
+            Dict[str, Any]: Token statistics
+        """
+        return self.token_manager.get_blacklist_stats()
+
+    async def cleanup_expired_tokens(self) -> None:
+        """Clean up expired tokens from blacklist."""
+        self.token_manager.cleanup_expired_blacklist()
 
     async def change_password(self, username: str, current_password: str, new_password: str) -> bool:
         """
@@ -491,7 +636,7 @@ class AuthManager:
         Returns:
             bool: True if token is valid, False otherwise
         """
-        result = self.token_manager.verify_access_token(token)
+        result = self.token_manager.verify_token(token, "access")
         return result.is_valid
 
     async def request_password_reset(self, email: str) -> Optional[str]:

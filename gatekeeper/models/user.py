@@ -45,6 +45,7 @@ class User(BaseModel):
         created_at (Optional[datetime]): When the user was created
         updated_at (Optional[datetime]): When the user was last updated
         metadata (Dict[str, Any]): Additional user metadata
+        permissions (Dict[str, Any]): User permissions for backward compatibility
     """
 
     id: Optional[str] = Field(default=None)
@@ -58,6 +59,7 @@ class User(BaseModel):
     created_at: Optional[datetime] = Field(default=None)
     updated_at: Optional[datetime] = Field(default=None)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    permissions: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("username")
     @classmethod
