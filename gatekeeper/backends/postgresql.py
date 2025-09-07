@@ -6,7 +6,7 @@ This module provides a PostgreSQL-based user storage backend using SQLAlchemy.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy import (
     create_engine,
@@ -18,7 +18,7 @@ from sqlalchemy import (
     JSON,
     text,
 )
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.postgresql import UUID
@@ -45,8 +45,8 @@ class UserModel(Base):
     profile_picture_url = Column(String(500), nullable=True)
     yapcoin_balance = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     user_metadata = Column(JSON, default=dict)
 
 
@@ -118,8 +118,8 @@ class PostgreSQLBackend(UserBackend):
                     password_hash=user.password,  # This should be hashed by the auth manager
                     role=user.role,
                     email=user.email,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
                 )
 
                 session.add(db_user)
@@ -310,7 +310,7 @@ class PostgreSQLBackend(UserBackend):
                 if user_update.metadata is not None:
                     db_user.user_metadata = user_update.metadata
 
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
 
                 session.commit()
                 session.refresh(db_user)
@@ -412,7 +412,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.password_hash = new_password_hash
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -436,7 +436,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.role = new_role
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -462,7 +462,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.profile_picture_url = profile_picture_url
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -488,7 +488,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.user_metadata = metadata
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -641,7 +641,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.user_metadata = settings
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -674,7 +674,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.username = new_username
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 
@@ -728,7 +728,7 @@ class PostgreSQLBackend(UserBackend):
                     return False
 
                 db_user.yapcoin_balance = (db_user.yapcoin_balance or 0) + amount
-                db_user.updated_at = datetime.utcnow()
+                db_user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
 

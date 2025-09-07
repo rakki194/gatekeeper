@@ -44,7 +44,8 @@ class TestMemoryBackend:
         """Test user creation."""
         created_user = await memory_backend.create_user(sample_user)
 
-        assert created_user.id == sample_user.id
+        # The backend generates a new UUID, so we can't assert the exact ID
+        assert created_user.id is not None
         assert created_user.username == sample_user.username
         assert created_user.email == sample_user.email
         assert created_user.role == sample_user.role
@@ -60,12 +61,12 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_user_by_id(self, memory_backend, sample_user):
         """Test getting user by ID."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
-        retrieved_user = await memory_backend.get_user_by_id(sample_user.id)
+        retrieved_user = await memory_backend.get_user_by_id(created_user.id)
 
         assert retrieved_user is not None
-        assert retrieved_user.id == sample_user.id
+        assert retrieved_user.id == created_user.id
         assert retrieved_user.username == sample_user.username
 
     @pytest.mark.asyncio
@@ -77,13 +78,13 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_user_by_username(self, memory_backend, sample_user):
         """Test getting user by username."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         retrieved_user = await memory_backend.get_user_by_username(sample_user.username)
 
         assert retrieved_user is not None
         assert retrieved_user.username == sample_user.username
-        assert retrieved_user.id == sample_user.id
+        assert retrieved_user.id == created_user.id
 
     @pytest.mark.asyncio
     async def test_get_user_by_username_not_found(self, memory_backend):
@@ -94,7 +95,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_user_by_email(self, memory_backend, sample_user):
         """Test getting user by email."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         # Use the backend's internal method to find user by email
         users = await memory_backend.list_users()
@@ -122,46 +123,52 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user(self, memory_backend, sample_user):
         """Test updating user."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
-        # Update user
-        sample_user.email = "updated@example.com"
-        sample_user.role = UserRole.ADMIN
+        # Create a UserUpdate object with the changes
+        from gatekeeper.models.user import UserUpdate
+        user_update = UserUpdate(
+            email="updated@example.com",
+            role=UserRole.ADMIN
+        )
 
-        updated_user = await memory_backend.update_user(sample_user)
+        updated_user = await memory_backend.update_user(created_user.username, user_update)
 
         assert updated_user.email == "updated@example.com"
         assert updated_user.role == UserRole.ADMIN
 
     @pytest.mark.asyncio
-    async def test_update_user_not_found(self, memory_backend, sample_user):
+    async def test_update_user_not_found(self, memory_backend):
         """Test updating non-existent user."""
+        from gatekeeper.models.user import UserUpdate
+        user_update = UserUpdate(email="updated@example.com")
+        
         with pytest.raises(UserNotFoundError):
-            await memory_backend.update_user(sample_user)
+            await memory_backend.update_user("nonexistent", user_update)
 
     @pytest.mark.asyncio
     async def test_delete_user(self, memory_backend, sample_user):
         """Test deleting user."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         # Verify user exists
-        user = await memory_backend.get_user_by_id(sample_user.id)
+        user = await memory_backend.get_user_by_id(created_user.id)
         assert user is not None
 
-        # Delete user
-        await memory_backend.delete_user(sample_user.id)
+        # Delete user by username
+        result = await memory_backend.delete_user(created_user.username)
+        assert result is True
 
         # Verify user is deleted
-        user = await memory_backend.get_user_by_id(sample_user.id)
+        user = await memory_backend.get_user_by_id(created_user.id)
         assert user is None
 
     @pytest.mark.asyncio
     async def test_delete_user_not_found(self, memory_backend):
         """Test deleting non-existent user."""
-        # The current implementation doesn't raise an error for non-existent users
-        # It just returns None, so we test that behavior
-        result = await memory_backend.delete_user("non-existent-id")
-        assert result is None
+        # The current implementation returns False for non-existent users
+        result = await memory_backend.delete_user("nonexistent")
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_list_users(self, memory_backend):
@@ -229,16 +236,16 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user_password(self, memory_backend, sample_user):
         """Test updating user password."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         success = await memory_backend.update_user_password(
-            sample_user.username, "new_hash"
+            created_user.username, "new_hash"
         )
 
         assert success is True
 
         # Verify password was updated
-        user = await memory_backend.get_user_by_username(sample_user.username)
+        user = await memory_backend.get_user_by_username(created_user.username)
         assert user.password_hash == "new_hash"
 
     @pytest.mark.asyncio
@@ -250,16 +257,16 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user_role(self, memory_backend, sample_user):
         """Test updating user role."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         success = await memory_backend.update_user_role(
-            sample_user.username, UserRole.ADMIN
+            created_user.username, UserRole.ADMIN
         )
 
         assert success is True
 
         # Verify role was updated
-        user = await memory_backend.get_user_by_username(sample_user.username)
+        user = await memory_backend.get_user_by_username(created_user.username)
         assert user.role == UserRole.ADMIN
 
     @pytest.mark.asyncio
@@ -271,16 +278,16 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user_profile_picture(self, memory_backend, sample_user):
         """Test updating user profile picture."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         success = await memory_backend.update_user_profile_picture(
-            sample_user.username, "https://example.com/avatar.jpg"
+            created_user.username, "https://example.com/avatar.jpg"
         )
 
         assert success is True
 
         # Verify profile picture was updated
-        user = await memory_backend.get_user_by_username(sample_user.username)
+        user = await memory_backend.get_user_by_username(created_user.username)
         assert user.profile_picture_url == "https://example.com/avatar.jpg"
 
     @pytest.mark.asyncio
@@ -294,17 +301,17 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user_metadata(self, memory_backend, sample_user):
         """Test updating user metadata."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         metadata = {"key": "value", "preferences": {"theme": "dark"}}
         success = await memory_backend.update_user_metadata(
-            sample_user.username, metadata
+            created_user.username, metadata
         )
 
         assert success is True
 
         # Verify metadata was updated
-        user = await memory_backend.get_user_by_username(sample_user.username)
+        user = await memory_backend.get_user_by_username(created_user.username)
         assert user.metadata == metadata
 
     @pytest.mark.asyncio
@@ -413,15 +420,15 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_user_settings(self, memory_backend, sample_user):
         """Test getting user settings."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
-        # Set some settings
-        memory_backend._settings[sample_user.id] = {
+        # Set some settings using the generated ID
+        memory_backend._settings[created_user.id] = {
             "theme": "dark",
             "notifications": True,
         }
 
-        settings = await memory_backend.get_user_settings(sample_user.username)
+        settings = await memory_backend.get_user_settings(created_user.username)
 
         assert settings["theme"] == "dark"
         assert settings["notifications"] is True
@@ -435,17 +442,17 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update_user_settings(self, memory_backend, sample_user):
         """Test updating user settings."""
-        await memory_backend.create_user(sample_user)
+        created_user = await memory_backend.create_user(sample_user)
 
         new_settings = {"theme": "light", "notifications": False}
         success = await memory_backend.update_user_settings(
-            sample_user.username, new_settings
+            created_user.username, new_settings
         )
 
         assert success is True
 
         # Verify settings were updated
-        settings = await memory_backend.get_user_settings(sample_user.username)
+        settings = await memory_backend.get_user_settings(created_user.username)
         assert settings == new_settings
 
     @pytest.mark.asyncio

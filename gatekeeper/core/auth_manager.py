@@ -7,7 +7,7 @@ user authentication, authorization, and management operations.
 
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..models.user import User, UserCreate, UserUpdate, UserPublic, UserLogin, UserPasswordChange
 from ..models.token import TokenResponse, TokenConfig
@@ -671,7 +671,7 @@ class AuthManager:
                 user.metadata = {}
             
             user.metadata["reset_token"] = reset_token
-            user.metadata["reset_token_expires"] = (datetime.now() + timedelta(hours=24)).isoformat()
+            user.metadata["reset_token_expires"] = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
             
             # Update user with reset token
             from ..models.user import UserUpdate
@@ -728,7 +728,7 @@ class AuthManager:
             if token_expires:
                 try:
                     expires_dt = datetime.fromisoformat(token_expires)
-                    if datetime.now() > expires_dt:
+                    if datetime.now(timezone.utc) > expires_dt:
                         logger.warning(f"Reset token expired for user: {user.username}")
                         return False
                 except Exception as e:

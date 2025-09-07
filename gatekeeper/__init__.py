@@ -54,6 +54,7 @@ from .backends.base import (
 )
 from .backends.memory import MemoryBackend
 from .backends.postgresql import PostgreSQLBackend
+from .backends.sqlite import SQLiteBackend
 
 # Utility exports
 from .utils.security import SecurityUtils
@@ -85,6 +86,7 @@ __all__ = [
     "UserAlreadyExistsError",
     "MemoryBackend",
     "PostgreSQLBackend",
+    "SQLiteBackend",
     # Utils
     "SecurityUtils",
     "PasswordValidator",
