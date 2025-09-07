@@ -5,6 +5,7 @@ This module tests the security and validation utilities.
 """
 
 import re
+
 from gatekeeper.utils.security import SecurityUtils
 from gatekeeper.utils.validators import PasswordValidator
 

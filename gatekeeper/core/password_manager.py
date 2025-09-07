@@ -6,11 +6,11 @@ supporting modern Argon2 hashing with optimal security parameters.
 """
 
 import logging
-import re
 import os
+import re
 import secrets
-from typing import Optional, Tuple, Dict, Any
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 try:
     from argon2 import PasswordHasher
@@ -77,7 +77,7 @@ SECURITY_PARAMS = {
 class PasswordManager:
     """
     Password management class for secure password operations.
-    
+
     Provides methods for hashing, verifying, and validating passwords using
     modern Argon2 cryptographic algorithms.
     """
@@ -85,7 +85,7 @@ class PasswordManager:
     def __init__(self, security_level: SecurityLevel = SecurityLevel.MEDIUM):
         """
         Initialize the password manager.
-        
+
         Args:
             security_level: The security level to use for password hashing
         """
@@ -188,7 +188,9 @@ class PasswordManager:
 
         # Unknown hash format
         else:
-            logger.warning(f"Unknown hash format encountered: {hashed_password[:20]}...")
+            logger.warning(
+                f"Unknown hash format encountered: {hashed_password[:20]}..."
+            )
             return False
 
     def verify_and_update_password(
@@ -233,7 +235,9 @@ class PasswordManager:
 
         # Unknown hash format
         else:
-            logger.warning(f"Unknown hash format encountered: {hashed_password[:20]}...")
+            logger.warning(
+                f"Unknown hash format encountered: {hashed_password[:20]}..."
+            )
             return False, None
 
     def _needs_argon2_update(self, hashed_password: str) -> bool:
@@ -347,7 +351,9 @@ class PasswordManager:
         """
         return secrets.token_bytes(length)
 
-    def benchmark_hash_time(self, password: str, iterations: int = 10) -> Dict[str, float]:
+    def benchmark_hash_time(
+        self, password: str, iterations: int = 10
+    ) -> Dict[str, float]:
         """
         Benchmark hash performance for different security levels.
 

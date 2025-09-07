@@ -5,9 +5,9 @@ This module defines the abstract base classes that all user backends must implem
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from ..models.user import User, UserCreate, UserUpdate, UserPublic
+from ..models.user import User, UserCreate, UserPublic, UserUpdate
 
 
 class BackendError(Exception):

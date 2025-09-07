@@ -7,24 +7,24 @@ This module provides a PostgreSQL-based user storage backend using SQLAlchemy.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    Integer,
-    Boolean,
-    DateTime,
     JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    create_engine,
     text,
 )
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-from .base import UserBackend, BackendError, UserNotFoundError, UserAlreadyExistsError
-from ..models.user import User, UserCreate, UserUpdate, UserPublic, UserRole
+from ..models.user import User, UserCreate, UserPublic, UserRole, UserUpdate
+from .base import BackendError, UserAlreadyExistsError, UserBackend, UserNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,11 @@ class UserModel(Base):
     yapcoin_balance = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
     user_metadata = Column(JSON, default=dict)
 
 
@@ -224,9 +228,7 @@ class PostgreSQLBackend(UserBackend):
         with self._get_session() as session:
             try:
                 db_user = (
-                    session.query(UserModel)
-                    .filter(UserModel.email == email)
-                    .first()
+                    session.query(UserModel).filter(UserModel.email == email).first()
                 )
 
                 if not db_user:

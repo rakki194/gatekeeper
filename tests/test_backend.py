@@ -4,14 +4,16 @@ Tests for backend functionality in the Gatekeeper library.
 This module tests the memory backend and base backend classes.
 """
 
-import pytest
 from datetime import datetime, timezone
-from gatekeeper.backends.memory import MemoryBackend
+
+import pytest
+
 from gatekeeper.backends.base import (
     BackendError,
-    UserNotFoundError,
     UserAlreadyExistsError,
+    UserNotFoundError,
 )
+from gatekeeper.backends.memory import MemoryBackend
 from gatekeeper.models.user import User, UserRole
 
 
@@ -127,12 +129,12 @@ class TestMemoryBackend:
 
         # Create a UserUpdate object with the changes
         from gatekeeper.models.user import UserUpdate
-        user_update = UserUpdate(
-            email="updated@example.com",
-            role=UserRole.ADMIN
-        )
 
-        updated_user = await memory_backend.update_user(created_user.username, user_update)
+        user_update = UserUpdate(email="updated@example.com", role=UserRole.ADMIN)
+
+        updated_user = await memory_backend.update_user(
+            created_user.username, user_update
+        )
 
         assert updated_user.email == "updated@example.com"
         assert updated_user.role == UserRole.ADMIN
@@ -141,8 +143,9 @@ class TestMemoryBackend:
     async def test_update_user_not_found(self, memory_backend):
         """Test updating non-existent user."""
         from gatekeeper.models.user import UserUpdate
+
         user_update = UserUpdate(email="updated@example.com")
-        
+
         with pytest.raises(UserNotFoundError):
             await memory_backend.update_user("nonexistent", user_update)
 

@@ -9,7 +9,8 @@ automatic validation for data passing between components.
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -346,4 +347,6 @@ class PasswordResetResponse(BaseModel):
     """
 
     message: str = Field(..., description="Success message")
-    token: Optional[str] = Field(None, description="Reset token (for development/testing)")
+    token: Optional[str] = Field(
+        None, description="Reset token (for development/testing)"
+    )

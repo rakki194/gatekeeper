@@ -4,14 +4,16 @@ Tests for core functionality in the Gatekeeper library.
 This module tests the auth manager, password manager, and token manager.
 """
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from gatekeeper import AuthManager, TokenConfig, UserCreate, UserRole, SecurityLevel
+
+from gatekeeper import AuthManager, SecurityLevel, TokenConfig, UserCreate, UserRole
 from gatekeeper.backends.memory import MemoryBackend
 from gatekeeper.core.password_manager import PasswordManager
 from gatekeeper.core.token_manager import TokenManager
-from gatekeeper.models.user import UserUpdate
 from gatekeeper.models.token import TokenData
+from gatekeeper.models.user import UserUpdate
 
 
 @pytest.fixture

@@ -5,13 +5,12 @@ This package contains backend implementations for user data storage.
 """
 
 from .base import (
-    UserBackend,
     BackendError,
-    UserNotFoundError,
-    UserAlreadyExistsError,
     InvalidCredentialsError,
+    UserAlreadyExistsError,
+    UserBackend,
+    UserNotFoundError,
 )
-
 from .memory import MemoryBackend
 from .postgresql import PostgreSQLBackend
 
@@ -22,7 +21,6 @@ __all__ = [
     "UserNotFoundError",
     "UserAlreadyExistsError",
     "InvalidCredentialsError",
-    
     # Implementations
     "MemoryBackend",
     "PostgreSQLBackend",

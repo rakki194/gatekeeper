@@ -4,10 +4,12 @@ Tests for data models in the Gatekeeper library.
 This module tests the Pydantic models used for data validation.
 """
 
-import pytest
 from datetime import datetime, timezone
-from gatekeeper.models.user import User, UserCreate, UserUpdate, UserPublic, UserRole
+
+import pytest
+
 from gatekeeper.models.token import TokenData
+from gatekeeper.models.user import User, UserCreate, UserPublic, UserRole, UserUpdate
 
 
 class TestUserModels:
@@ -26,7 +28,7 @@ class TestUserModels:
             password_hash="hashed_password",
             profile_picture_url="https://example.com/avatar.jpg",
             yapcoin_balance=100,
-            metadata={"theme": "dark", "language": "en"}
+            metadata={"theme": "dark", "language": "en"},
         )
 
         assert user.id == "test-id"
@@ -46,7 +48,7 @@ class TestUserModels:
             username="testuser",
             role=UserRole.REGULAR,
             is_active=True,
-            password_hash="hashed_password"
+            password_hash="hashed_password",
         )
 
         assert user.id == "test-id"
@@ -61,11 +63,7 @@ class TestUserModels:
 
     def test_user_creation_defaults(self):
         """Test user creation with default values."""
-        user = User(
-            id="test-id",
-            username="testuser",
-            password_hash="hashed_password"
-        )
+        user = User(id="test-id", username="testuser", password_hash="hashed_password")
 
         assert user.role == UserRole.REGULAR
         assert user.is_active is True
@@ -82,7 +80,7 @@ class TestUserModels:
             username="testuser",
             password="TestPassword123!",
             email="test@example.com",
-            role=UserRole.ADMIN
+            role=UserRole.ADMIN,
         )
 
         assert user_data.username == "testuser"
@@ -92,10 +90,7 @@ class TestUserModels:
 
     def test_user_create_model_minimal(self):
         """Test UserCreate model with minimal fields."""
-        user_data = UserCreate(
-            username="testuser",
-            password="TestPassword123!"
-        )
+        user_data = UserCreate(username="testuser", password="TestPassword123!")
 
         assert user_data.username == "testuser"
         assert user_data.password == "TestPassword123!"
@@ -109,7 +104,7 @@ class TestUserModels:
             role=UserRole.ADMIN,
             is_active=False,
             profile_picture_url="https://example.com/new-avatar.jpg",
-            metadata={"new_key": "new_value"}
+            metadata={"new_key": "new_value"},
         )
 
         assert user_update.email == "new@example.com"
@@ -120,9 +115,7 @@ class TestUserModels:
 
     def test_user_update_model_partial(self):
         """Test UserUpdate model with partial data."""
-        user_update = UserUpdate(
-            email="new@example.com"
-        )
+        user_update = UserUpdate(email="new@example.com")
 
         assert user_update.email == "new@example.com"
         assert user_update.role is None
@@ -141,7 +134,7 @@ class TestUserModels:
             password_hash="hashed_password",
             profile_picture_url="https://example.com/avatar.jpg",
             yapcoin_balance=100,
-            metadata={"theme": "dark"}
+            metadata={"theme": "dark"},
         )
 
         user_public = UserPublic.from_user(user)
@@ -158,7 +151,7 @@ class TestUserModels:
         assert user_public.updated_at == user.updated_at
 
         # Ensure password_hash is not included
-        assert not hasattr(user_public, 'password_hash')
+        assert not hasattr(user_public, "password_hash")
 
     def test_user_public_from_user_none_metadata(self):
         """Test UserPublic.from_user with None metadata."""
@@ -168,7 +161,7 @@ class TestUserModels:
             role=UserRole.REGULAR,
             is_active=True,
             password_hash="hashed_password",
-            metadata={}  # Use empty dict instead of None
+            metadata={},  # Use empty dict instead of None
         )
 
         user_public = UserPublic.from_user(user)
@@ -183,7 +176,7 @@ class TestUserModels:
             username="testuser",
             role=UserRole.REGULAR,
             is_active=True,
-            password_hash="hashed_password"
+            password_hash="hashed_password",
         )
         assert user.username == "testuser"
 
@@ -195,7 +188,7 @@ class TestUserModels:
                 email="invalid-email",
                 role=UserRole.REGULAR,
                 is_active=True,
-                password_hash="hashed_password"
+                password_hash="hashed_password",
             )
 
         # Test username too short
@@ -205,7 +198,7 @@ class TestUserModels:
                 username="ab",  # Too short
                 role=UserRole.REGULAR,
                 is_active=True,
-                password_hash="hashed_password"
+                password_hash="hashed_password",
             )
 
         # Test username too long
@@ -215,7 +208,7 @@ class TestUserModels:
                 username="a" * 51,  # Too long
                 role=UserRole.REGULAR,
                 is_active=True,
-                password_hash="hashed_password"
+                password_hash="hashed_password",
             )
 
     def test_user_role_enum(self):
@@ -233,7 +226,7 @@ class TestUserModels:
             role=UserRole.REGULAR,
             is_active=True,
             password_hash="hashed_password",
-            metadata={}
+            metadata={},
         )
         assert user.metadata == {}
 
@@ -244,21 +237,14 @@ class TestUserModels:
             role=UserRole.REGULAR,
             is_active=True,
             password_hash="hashed_password",
-            metadata={}  # Use empty dict instead of None
+            metadata={},  # Use empty dict instead of None
         )
         assert user.metadata == {}
 
         # Test with complex metadata
         complex_metadata = {
-            "preferences": {
-                "theme": "dark",
-                "language": "en",
-                "notifications": True
-            },
-            "settings": {
-                "timezone": "UTC",
-                "date_format": "ISO"
-            }
+            "preferences": {"theme": "dark", "language": "en", "notifications": True},
+            "settings": {"timezone": "UTC", "date_format": "ISO"},
         }
         user = User(
             id="test-id",
@@ -266,7 +252,7 @@ class TestUserModels:
             role=UserRole.REGULAR,
             is_active=True,
             password_hash="hashed_password",
-            metadata=complex_metadata
+            metadata=complex_metadata,
         )
         assert user.metadata == complex_metadata
 
@@ -286,7 +272,7 @@ class TestTokenModels:
             exp=exp,
             iat=now,
             jti="unique-token-id",
-            metadata={"device": "web", "ip": "127.0.0.1"}
+            metadata={"device": "web", "ip": "127.0.0.1"},
         )
 
         assert token_data.sub == "user123"
@@ -299,11 +285,7 @@ class TestTokenModels:
 
     def test_token_data_creation_minimal(self):
         """Test creating TokenData with minimal fields."""
-        token_data = TokenData(
-            sub="user123",
-            role="regular",
-            type="access"
-        )
+        token_data = TokenData(sub="user123", role="regular", type="access")
 
         assert token_data.sub == "user123"
         assert token_data.role == "regular"
@@ -315,11 +297,7 @@ class TestTokenModels:
 
     def test_token_data_defaults(self):
         """Test TokenData default values."""
-        token_data = TokenData(
-            sub="user123",
-            role="regular",
-            type="access"
-        )
+        token_data = TokenData(sub="user123", role="regular", type="access")
 
         assert token_data.exp is None
         assert token_data.iat is None
@@ -329,21 +307,19 @@ class TestTokenModels:
     def test_token_data_validation(self):
         """Test TokenData validation."""
         # Test valid token data
-        token_data = TokenData(
-            sub="user123",
-            role="regular",
-            type="access"
-        )
+        token_data = TokenData(sub="user123", role="regular", type="access")
         assert token_data.sub == "user123"
 
         # Test with expired token
-        past_exp = datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year - 1)
+        past_exp = datetime.now(timezone.utc).replace(
+            year=datetime.now(timezone.utc).year - 1
+        )
         token_data = TokenData(
             sub="user123",
             role="regular",
             type="access",
             exp=past_exp,
-            iat=datetime.now(timezone.utc)
+            iat=datetime.now(timezone.utc),
         )
         # Should not raise error as validation is not enforced in the model
 
@@ -351,10 +327,7 @@ class TestTokenModels:
         """Test TokenData metadata handling."""
         # Test with empty metadata
         token_data = TokenData(
-            sub="user123",
-            role="regular",
-            type="access",
-            metadata={}
+            sub="user123", role="regular", type="access", metadata={}
         )
         assert token_data.metadata == {}
 
@@ -363,26 +336,19 @@ class TestTokenModels:
             sub="user123",
             role="regular",
             type="access",
-            metadata={}  # Use empty dict instead of None
+            metadata={},  # Use empty dict instead of None
         )
         assert token_data.metadata == {}
 
         # Test with complex metadata
         complex_metadata = {
-            "device_info": {
-                "type": "mobile",
-                "os": "iOS",
-                "version": "15.0"
-            },
+            "device_info": {"type": "mobile", "os": "iOS", "version": "15.0"},
             "session": {
                 "id": "session123",
-                "created": datetime.now(timezone.utc).isoformat()
-            }
+                "created": datetime.now(timezone.utc).isoformat(),
+            },
         }
         token_data = TokenData(
-            sub="user123",
-            role="regular",
-            type="access",
-            metadata=complex_metadata
+            sub="user123", role="regular", type="access", metadata=complex_metadata
         )
         assert token_data.metadata == complex_metadata

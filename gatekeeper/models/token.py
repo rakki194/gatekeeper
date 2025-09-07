@@ -6,7 +6,8 @@ throughout the authentication system.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -32,7 +33,9 @@ class TokenData(BaseModel):
     exp: Optional[datetime] = Field(default=None, description="Expiration time")
     iat: Optional[datetime] = Field(default=None, description="Issued at time")
     jti: Optional[str] = Field(default=None, description="JWT ID for token uniqueness")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
     @property
     def username(self) -> str:
@@ -62,7 +65,9 @@ class TokenResponse(BaseModel):
     refresh_token: str = Field(..., description="JWT refresh token")
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: int = Field(..., description="Access token expiration time in seconds")
-    refresh_expires_in: int = Field(..., description="Refresh token expiration time in seconds")
+    refresh_expires_in: int = Field(
+        ..., description="Refresh token expiration time in seconds"
+    )
 
 
 class TokenRefreshRequest(BaseModel):
@@ -108,10 +113,14 @@ class TokenValidationResult(BaseModel):
     """
 
     is_valid: bool = Field(..., description="Whether the token is valid")
-    payload: Optional[TokenData] = Field(default=None, description="Token payload if valid")
+    payload: Optional[TokenData] = Field(
+        default=None, description="Token payload if valid"
+    )
     error: Optional[str] = Field(default=None, description="Error message if invalid")
     is_expired: bool = Field(default=False, description="Whether the token is expired")
-    is_refresh_token: bool = Field(default=False, description="Whether this is a refresh token")
+    is_refresh_token: bool = Field(
+        default=False, description="Whether this is a refresh token"
+    )
 
 
 class TokenConfig(BaseModel):
@@ -131,8 +140,12 @@ class TokenConfig(BaseModel):
 
     secret_key: str = Field(..., description="Secret key for JWT signing")
     algorithm: str = Field(default="HS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=30, description="Access token expiration time in minutes")
-    refresh_token_expire_days: int = Field(default=7, description="Refresh token expiration time in days")
+    access_token_expire_minutes: int = Field(
+        default=30, description="Access token expiration time in minutes"
+    )
+    refresh_token_expire_days: int = Field(
+        default=7, description="Refresh token expiration time in days"
+    )
     issuer: Optional[str] = Field(default=None, description="Token issuer")
     audience: Optional[str] = Field(default=None, description="Token audience")
 

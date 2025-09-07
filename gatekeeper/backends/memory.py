@@ -6,12 +6,12 @@ testing, development, and small-scale applications.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
 import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from .base import UserBackend, BackendError, UserNotFoundError, UserAlreadyExistsError
-from ..models.user import User, UserCreate, UserUpdate, UserPublic
+from ..models.user import User, UserCreate, UserPublic, UserUpdate
+from .base import BackendError, UserAlreadyExistsError, UserBackend, UserNotFoundError
 
 logger = logging.getLogger(__name__)
 
