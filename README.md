@@ -34,12 +34,12 @@ async def main():
         access_token_expire_minutes=30,
         refresh_token_expire_days=7
     )
-    
+
     auth_manager = AuthManager(
         backend=MemoryBackend(),
         token_config=token_config
     )
-    
+
     # Create a user
     user_data = UserCreate(
         username="john_doe",
@@ -47,16 +47,16 @@ async def main():
         email="john@example.com",
         role=UserRole.REGULAR
     )
-    
+
     user = await auth_manager.create_user(user_data)
     print(f"Created user: {user.username}")
-    
+
     # Authenticate user
     tokens = await auth_manager.authenticate("john_doe", "SecurePassword123!")
     if tokens:
         print(f"Access token: {tokens.access_token}")
         print(f"Refresh token: {tokens.refresh_token}")
-    
+
     # Get current user from token
     current_user = await auth_manager.get_current_user(tokens.access_token)
     print(f"Current user: {current_user.username}")
@@ -197,11 +197,11 @@ class MyDatabaseBackend(UserBackend):
     async def create_user(self, user: UserCreate) -> User:
         # Your implementation here
         pass
-    
+
     async def get_user_by_username(self, username: str) -> Optional[User]:
         # Your implementation here
         pass
-    
+
     # ... implement all required methods
 ```
 
